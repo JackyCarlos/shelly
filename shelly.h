@@ -1,4 +1,4 @@
-#define SHELLY_BUF 1024
+#define SHELLY_BUF 128
 
 void shelly_loop(void);
 char *shelly_read_line(void);
