@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 
 void shelly_loop(void)
 {
-    char *line;
+    char *line;  
     char **args;
     int status = 1;
 
@@ -35,11 +35,22 @@ char *shelly_read_line(void)
     char *buf = buffer;
     int c; 
 
+    if (!buffer) {
+        fprintf(stderr, "shelly: allocation error\n");
+        exit(1);
+    }
+
     while ((c = getchar()) != EOF && c != '\n') {
         *buf++ = c;
 
         if(buf - buffer == bufsize) {
-            
+            bufsize += SHELLY_BUF;
+            buffer = realloc(buffer, bufsize);
+
+            if (!buffer) {
+                fprintf(stderr, "shelly: allocation error\n");
+                exit(1);
+            }
         }
     }
 
