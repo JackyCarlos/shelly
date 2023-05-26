@@ -25,7 +25,7 @@ void shelly_loop(void)
         printf("$ ");
         line = shelly_read_line();
         args = shelly_split_line(line);
-        status = shelly_execute(args);
+        status = shelly_launch(args);
         
         // for(; *args != NULL; args++) {
         //     printf("Argument: %s\n", *args);
@@ -98,7 +98,7 @@ char **shelly_split_line(char *line)
     return tokens;
 }
 
-int shelly_execute(char **args)
+int shelly_launch(char **args)
 {
     pid_t pid, wpid;
     int status;
