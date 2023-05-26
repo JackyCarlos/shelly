@@ -5,4 +5,8 @@
 void shelly_loop(void);
 char *shelly_read_line(void);
 char **shelly_split_line(char *);
-int shelly_execute(char **);
+int shelly_launch(char **);
+
+int shelly_cd(char **args);
+int shelly_help(char **args);
+int shelly_exit(char **args);
