@@ -25,7 +25,7 @@ void shelly_loop(void)
         printf("$ ");
         line = shelly_read_line();
         args = shelly_split_line(line);
-        status = shelly_launch(args);
+        status = shelly_execute(args);
         
         // for(; *args != NULL; args++) {
         //     printf("Argument: %s\n", *args);
