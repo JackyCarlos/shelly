@@ -15,3 +15,6 @@ int shelly_exit(char **args);
 
 // prototypes for shelly helper function
 int shelly_num_builtins(void);
+
+extern char *builtin_str[];
+extern int (*builtin_func[]) (char **);
