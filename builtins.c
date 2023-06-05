@@ -8,7 +8,7 @@ char *builtin_str[] = {
     "exit"
 };
 
-int (*builtin[]) (char ** ) = {
+int (*builtin_func[]) (char ** ) = {
     &shelly_cd,
     &shelly_help,
     &shelly_exit
@@ -27,7 +27,7 @@ int shelly_cd(char **args)
         if (chdir(args[1]) != 0)
             perror("shelly");
     
-    return 0;
+    return 1;
 }
 
 int shelly_help(char **args)
