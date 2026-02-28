@@ -1,25 +1,54 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
 
 void shelly(void);
 char *read_line(void);
 char **split_line(char *line);
+int execute(char **tokens);
 
 int main(int argc, char *argv[]) {
+    shelly();
+    
+    return 0;
+}
+
+void shelly(void) {
     char *line;
     char **tokens;
+    int status;
 
-    while (1) {
+    status = 1;
+
+    while (status) {
+        printf("%% ");
         line = read_line();
         tokens = split_line(line);
         
-        for (int i = 0; tokens[i] != NULL; ++i) {
-            printf("%d. argument is %s\n", i, tokens[i]);
-        }
+        status = execute(tokens);
     }
-    
-    return 0;
+}
+
+int execute(char **tokens) {
+    pid_t pid, pid2;
+    int status;
+
+    pid = fork();
+
+    if (pid == 0) {
+        execvp(*tokens, tokens);
+        fprintf(stderr, "exec error\n");
+        exit(0);
+    } else if (pid < 0) {
+        fprintf(stderr, "fork error\n");
+    } else {
+        waitpid(pid, &status, WNOHANG);
+    }
+
+    return 1;
 }
 
 char *read_line(void) {
@@ -63,16 +92,18 @@ char **split_line(char *line) {
         exit(0);        
     }
 
-
-
     token = strtok(line, delim);
 
     while (token != NULL) {
         if (tokens2 - tokens == size) {
             size += 32;
             tokens = (char **) realloc(tokens, sizeof(char *) * size);
-        }
 
+            if (tokens == NULL) {
+                fprintf(stderr, "memory allocation error. Terminating .. \n");
+                exit(0);        
+            }
+        }
         *tokens2++ = token; 
 
         token = strtok(NULL, delim);
@@ -82,4 +113,3 @@ char **split_line(char *line) {
 
     return tokens;
 }
-
