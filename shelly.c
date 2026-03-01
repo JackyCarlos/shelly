@@ -39,10 +39,12 @@ void shelly_loop(void) {
 }
 
 void print_cli(void) {
-    char *cwd;
+    char *cwd, *user;
 
     cwd = getcwd(NULL, PATH_MAX);
-    printf("%s $ ", cwd);
+    user = getlogin();
+
+    printf("%s %s $ ", (user != NULL ? user : ""), cwd);
 
     free(cwd);
 }
