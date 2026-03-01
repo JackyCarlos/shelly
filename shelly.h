@@ -5,3 +5,5 @@ typedef struct {
 
 extern builtin_h builtins[];
 int builtins_size(void);
+
+#define      PATH_MAX        1024
