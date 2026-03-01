@@ -7,6 +7,7 @@
 #include "shelly.h"
 
 void shelly_loop(void);
+void print_cli(void);
 char *read_line(void);
 char **split_line(char *line);
 int execute(char **tokens);
@@ -25,28 +26,46 @@ void shelly_loop(void) {
     status = 1;
 
     while (status) {
-        printf("%% ");
+        print_cli();
+        
         line = read_line();
         tokens = split_line(line);
         
-        status = execute(tokens);      
+        status = execute(tokens); 
+        
+        free(line);
+        free(tokens);
     }
+}
+
+void print_cli(void) {
+    char *cwd;
+
+    cwd = getcwd(NULL, PATH_MAX);
+    printf("%s $ ", cwd);
+
+    free(cwd);
 }
 
 int execute(char **tokens) {
     pid_t pid, pid2;
     int i, status;
 
+    if (*tokens == NULL) {
+        return 1;
+    }
+
     for (i = 0; i < builtins_size(); ++i) {
         if (strcmp(*tokens, builtins[i].name) == 0) {
             return builtins[i].builtin(tokens);
-        }
+        }      
     }
 
     pid = fork();
 
     if (pid == 0) {
         execvp(*tokens, tokens);
+
         fprintf(stderr, "exec error\n");
         exit(0);
     } else if (pid < 0) {
