@@ -40,11 +40,14 @@ void shelly_loop(void) {
 
 void print_cli(void) {
     char *cwd, *user;
+    char hostname[64];
 
     cwd = getcwd(NULL, PATH_MAX);
     user = getlogin();
+    gethostname(hostname, sizeof(hostname));
 
-    printf("%s %s $ ", (user != NULL ? user : ""), cwd);
+
+    printf("%s@%s %s $ ", (user != NULL ? user : ""), hostname, cwd);
 
     free(cwd);
 }
