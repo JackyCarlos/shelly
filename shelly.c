@@ -4,19 +4,20 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#include "shelly.h"
 
-void shelly(void);
+void shelly_loop(void);
 char *read_line(void);
 char **split_line(char *line);
 int execute(char **tokens);
 
 int main(int argc, char *argv[]) {
-    shelly();
+    shelly_loop();
     
     return 0;
 }
 
-void shelly(void) {
+void shelly_loop(void) {
     char *line;
     char **tokens;
     int status;
@@ -28,13 +29,19 @@ void shelly(void) {
         line = read_line();
         tokens = split_line(line);
         
-        status = execute(tokens);
+        status = execute(tokens);      
     }
 }
 
 int execute(char **tokens) {
     pid_t pid, pid2;
-    int status;
+    int i, status;
+
+    for (i = 0; i < builtins_size(); ++i) {
+        if (strcmp(*tokens, builtins[i].name) == 0) {
+            return builtins[i].builtin(tokens);
+        }
+    }
 
     pid = fork();
 
@@ -45,7 +52,9 @@ int execute(char **tokens) {
     } else if (pid < 0) {
         fprintf(stderr, "fork error\n");
     } else {
-        waitpid(pid, &status, WNOHANG);
+        do {
+            waitpid(pid, &status, WUNTRACED);
+        } while (!WIFEXITED(status) && !WIFSIGNALED(status));     
     }
 
     return 1;
