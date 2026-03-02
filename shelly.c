@@ -9,9 +9,9 @@
 void shelly_loop(void);
 void print_cli(void);
 char *read_line(void);
-char **split_line(char *line);
-int run_command(char **tokens);
-int launch_command(char **tokens);
+execution_context_t *parse_line(char *line);
+int run_command(execution_context_t *context);
+int launch_command(execution_context_t *context);
 
 int main(int argc, char *argv[]) {
     shelly_loop();
@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 
 void shelly_loop(void) {
     char *line;
-    char **tokens;
+    execution_context_t *context;
     int status;
 
     status = 1;
@@ -30,12 +30,13 @@ void shelly_loop(void) {
         print_cli();
         
         line = read_line();
-        tokens = split_line(line);
+        context = parse_line(line);
         
-        status = run_command(tokens); 
+        status = run_command(context); 
         
         free(line);
-        free(tokens);
+        free(context->tokens);
+        free(context);
     }
 }
 
@@ -52,32 +53,32 @@ void print_cli(void) {
     free(cwd);
 }
 
-int run_command(char **tokens) {
+int run_command(execution_context_t *context) {
     int i;
 
     // when user just hits enter without cmd 
-    if (*tokens == NULL) {
+    if (context->tokens[0] == NULL) {
         return 1;
     }
 
     for (i = 0; i < builtins_size(); ++i) {
-        if (strcmp(*tokens, builtins[i].name) == 0) {
-            return builtins[i].builtin(tokens);
+        if (strcmp(*context->tokens, builtins[i].name) == 0) {
+            return builtins[i].builtin(context->tokens);
         }      
     }
 
-    return launch_command(tokens);
+    return launch_command(context);
 }
 
 
-int launch_command(char **tokens) {
+int launch_command(execution_context_t *context) {
     pid_t pid, pid2;
     int i, status;
 
     pid = fork();
 
     if (pid == 0) {
-        execvp(*tokens, tokens);
+        execvp(*context->tokens, context->tokens);
 
         fprintf(stderr, "exec error\n");
         exit(0);
@@ -121,13 +122,15 @@ char *read_line(void) {
     return line;
 }
 
-char **split_line(char *line) {
+execution_context_t *parse_line(char *line) {
     char *delim, *token, **tokens, **tokens2;
+    execution_context_t *execution_context;
     int size;
 
     delim = " \t\r";
     size = 32;
     tokens = tokens2 = (char **) malloc(sizeof(char *) * size);
+    execution_context = malloc(sizeof(execution_context_t));
 
     if (tokens == NULL) {
         fprintf(stderr, "memory allocation error. Terminating .. \n");
@@ -146,12 +149,31 @@ char **split_line(char *line) {
                 exit(0);        
             }
         }
-        *tokens2++ = token; 
+
+        if (strcmp(token, ">") == 0) {
+            execution_context->input_file = strtok(NULL, delim);
+        } else if (strcmp(token, ">>") == 0) {
+            execution_context->output_file = strtok(NULL, delim);
+        } else if (strcmp(token, "<") == 0) {
+            execution_context->append_file = strtok(NULL, delim);
+        } else {
+            *tokens2++ = token;             
+        }
 
         token = strtok(NULL, delim);
     }
 
     *tokens2 = NULL;
 
-    return tokens;
+    execution_context->tokens = tokens;
+
+    return execution_context;
 }
+
+
+// typedef struct {
+//     char **tokens;
+//     char *input_file;
+//     char *output_file;
+//     char *append_file;
+// } execution_context_t;
