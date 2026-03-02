@@ -10,7 +10,8 @@ void shelly_loop(void);
 void print_cli(void);
 char *read_line(void);
 char **split_line(char *line);
-int execute(char **tokens);
+int run_command(char **tokens);
+int launch_command(char **tokens);
 
 int main(int argc, char *argv[]) {
     shelly_loop();
@@ -31,7 +32,7 @@ void shelly_loop(void) {
         line = read_line();
         tokens = split_line(line);
         
-        status = execute(tokens); 
+        status = run_command(tokens); 
         
         free(line);
         free(tokens);
@@ -46,16 +47,15 @@ void print_cli(void) {
     user = getlogin();
     gethostname(hostname, sizeof(hostname));
 
-
     printf("%s@%s %s $ ", (user != NULL ? user : ""), hostname, cwd);
 
     free(cwd);
 }
 
-int execute(char **tokens) {
-    pid_t pid, pid2;
-    int i, status;
+int run_command(char **tokens) {
+    int i;
 
+    // when user just hits enter without cmd 
     if (*tokens == NULL) {
         return 1;
     }
@@ -65,6 +65,14 @@ int execute(char **tokens) {
             return builtins[i].builtin(tokens);
         }      
     }
+
+    return launch_command(tokens);
+}
+
+
+int launch_command(char **tokens) {
+    pid_t pid, pid2;
+    int i, status;
 
     pid = fork();
 
@@ -83,6 +91,7 @@ int execute(char **tokens) {
 
     return 1;
 }
+
 
 char *read_line(void) {
     char *line, *line2;
