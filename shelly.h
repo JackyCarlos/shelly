@@ -3,6 +3,13 @@ typedef struct {
     int (*builtin)(char **tokens);
 } builtin_h; 
 
+typedef struct {
+    char **tokens;
+    char *input_file;
+    char *output_file;
+    char *append_file;
+} execution_context_t;
+
 extern builtin_h builtins[];
 int builtins_size(void);
 
