@@ -70,14 +70,20 @@ int run_command(execution_context_t *context) {
     return launch_command(context);
 }
 
-
 int launch_command(execution_context_t *context) {
-    pid_t pid, pid2;
+    pid_t pid;
     int i, status;
 
     pid = fork();
 
     if (pid == 0) {
+        if (context->output_file) {
+            FILE *fptr;
+
+            fptr = fopen(context->output_file, "w");
+            dup2(fileno(fptr), 1);
+        }
+
         execvp(*context->tokens, context->tokens);
 
         fprintf(stderr, "exec error\n");
@@ -92,7 +98,6 @@ int launch_command(execution_context_t *context) {
 
     return 1;
 }
-
 
 char *read_line(void) {
     char *line, *line2;
@@ -151,11 +156,11 @@ execution_context_t *parse_line(char *line) {
         }
 
         if (strcmp(token, ">") == 0) {
-            execution_context->input_file = strtok(NULL, delim);
-        } else if (strcmp(token, ">>") == 0) {
             execution_context->output_file = strtok(NULL, delim);
-        } else if (strcmp(token, "<") == 0) {
+        } else if (strcmp(token, ">>") == 0) {
             execution_context->append_file = strtok(NULL, delim);
+        } else if (strcmp(token, "<") == 0) {
+            execution_context->input_file = strtok(NULL, delim);
         } else {
             *tokens2++ = token;             
         }
@@ -164,7 +169,6 @@ execution_context_t *parse_line(char *line) {
     }
 
     *tokens2 = NULL;
-
     execution_context->tokens = tokens;
 
     return execution_context;
