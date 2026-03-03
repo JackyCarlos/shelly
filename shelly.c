@@ -174,6 +174,119 @@ execution_context_t *parse_line(char *line) {
     return execution_context;
 }
 
+enum tokenizer_status {
+    START,
+    WORD,
+    REDIRECT_IN,
+    REDIRECT_PIPE,
+    REDIRECT_OUT,
+    REDIRECT_APPEND
+};
+
+token_t *get_tokens(char *line) {
+    token_t *token_list;
+    int size, i, c;
+    tokenizer_status status;
+
+    size = 32;
+    token_list = (token_t *) malloc(sizeof(token_t) * size);
+
+
+
+    i = 0;
+    status = START;
+
+
+
+
+    int in_word = -1;
+
+
+    
+    c = getchar();
+    while (c != EOF) {
+        if (i >= size - 1) {
+            size += 32;
+
+            token_list = realloc(token_list, sizeof(token_t) * size);
+        }
+
+        switch (c) {
+            case '<':
+                if (status == START) {
+                    return NULL;
+                } else if (status == WORD) {
+                    // add null byte
+                    token_list[i].str[token_list[i].index] = '\0';
+
+                    i++;
+                    token_list[i].str[0] = '<';
+                    status = REDIRECT_IN;
+                    in_word = 1;
+                } else if (status == REDIRECT_IN || status == REDIRECT_OUT || status == REDIRECT_PIPE || status == REDIRECT_APPEND) {
+                    return NULL;
+                } break;
+
+            case '|':
+                if (status == START) {
+                    return NULL;
+                } else if (status == WORD) {
+                    // add null byte
+                    token_list[i].str[token_list[i].index] = '\0';
+
+                    i++;
+                    token_list[i].str[0] = '|';
+                    status = REDIRECT_PIPE;
+                    in_word = 1;
+                } else if (status == REDIRECT_IN || status == REDIRECT_OUT || status == REDIRECT_PIPE || status == REDIRECT_APPEND) {
+                    return NULL;
+                } break;
+
+            case '>':
+                if (status == START) {
+                    return NULL;
+                } else if (status == WORD) {
+                    // add null byte
+                    token_list[i].str[token_list[i].index] = '\0';
+
+                    i++;
+                    token_list[i].str[0] = '>';
+                    status = REDIRECT_PIPE;
+                    in_word = 1;
+                } else if (status == REDIRECT_IN || status == REDIRECT_PIPE || status == REDIRECT_APPEND) {
+                    return NULL;
+                } else if (status == REDIRECT_OUT && in_word) {
+                    token_list[i].str[1] = '>';
+                    status = REDIRECT_APPEND;
+                } else if (status == REDIRECT_OUT && !in_word) {
+
+                } break;   
+
+            case ' ':
+                if (status != START && in_word == 1) {
+                    in_word = 0;
+                }
+                break;
+
+            default:
+                if (status != WORD && status != START || !in_word) {
+                    i++; 
+                } 
+                status = WORD;
+                in_word = 1;
+                token_list[i].str[token_list[i].index++] = c;
+        };
+
+
+        c = getchar();
+    }
+
+
+
+
+}
+
+
 
 // typedef struct {
 //     char **tokens;

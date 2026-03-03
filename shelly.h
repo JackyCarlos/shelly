@@ -10,6 +10,18 @@ typedef struct {
     char *append_file;
 } execution_context_t;
 
+typedef enum {
+    WORD,
+    REDIRECT
+} TOKEN_TYPE;
+
+typedef struct {
+    TOKEN_TYPE type;
+    char str[256];
+    int index;
+} token_t;
+
+
 extern builtin_h builtins[];
 int builtins_size(void);
 
