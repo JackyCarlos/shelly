@@ -22,6 +22,7 @@ int main(int argc, char *argv[]) {
     char *line;
 
     line = read_line();
+    printf("line:::: %s\n", line);
     token_list = tokenizer(line); // get_tokens(line);
 
     if (token_list == NULL) {
@@ -30,7 +31,7 @@ int main(int argc, char *argv[]) {
     }
 
     while (token_list->type != NULL_TYPE) {
-        printf("token: %s, type:%d\n", token_list->str ? token_list->str : "nix", token_list->type);
+        printf("token: %s, type:%d\n", token_list->str, token_list->type);
         token_list++;
     }
     
@@ -271,6 +272,7 @@ token_t *tokenizer(char *line) {
                 }
 
                 if (token_list[i].index >= token_buf_size - 1) {
+                    printf("enlarged\n");
                     token_buf_size += 32;
                     token_list[i].str = (char *) realloc(token_list[i].str, token_buf_size);
 
@@ -279,8 +281,10 @@ token_t *tokenizer(char *line) {
                     }
                 }
 
-                str_index = token_list[i].index++;
+                str_index = token_list[i].index;
+                printf("writing to index %d\n", str_index);
                 token_list[i].str[str_index] = *line;
+                token_list[i].index += 1;
                 str_index = token_list[i].index;
                 token_list[i].str[str_index] = '\0';
 
