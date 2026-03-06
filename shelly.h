@@ -11,13 +11,23 @@ typedef struct {
 } execution_context_t;
 
 typedef enum {
-    WORD,
-    REDIRECT
-} TOKEN_TYPE;
+    WORD_TYPE,
+    REDIRECT_OUT,
+    REDIRECT_IN,
+    REDIRECT_PIPE,
+    REDIRECT_APPEND,
+    NULL_TYPE
+} token_type;
+
+typedef enum {
+    STATUS_WORDOUT,
+    STATUS_WORDIN,
+    STATUS_REDIRECT_OUT,
+} tokenizer_status;
 
 typedef struct {
-    TOKEN_TYPE type;
-    char str[256];
+    token_type type;
+    char *str;
     int index;
 } token_t;
 
