@@ -29,8 +29,9 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    for (int i = 0; i < 32; ++i) {
-        printf("token: %s, type:%d\n", token_list[i].str, token_list[i].type);
+    while (token_list->type != NULL_TYPE) {
+        printf("token: %s, type:%d\n", token_list->str ? token_list->str : "nix", token_list->type);
+        token_list++;
     }
     
     return 0;
@@ -191,186 +192,116 @@ execution_context_t *parse_line(char *line) {
     return execution_context;
 }
 
-enum tokenizer_status {
-    START,
-    WORDOUT,
-    WORDIN,
-    REDIRECT_IN,
-    REDIRECT_PIPE,
-    REDIRECT_OUT,
-    REDIRECT_APPEND,
-    WORDO
-};
 
-token_t *get_tokens(char *line) {
-    token_t *token_list;
-    int size, i;
-    enum tokenizer_status status;
-
-    size = 32;
-    token_list = (token_t *) malloc(sizeof(token_t) * size);
-
-    for (int j = 0; j < size; ++j) {
-        token_list[j].index = 0;
-    }
-
-
-    i = 0;
-    status = START;
-    int in_word = -1;
-
-    
-    while (*line != '\0') {
-        if (i >= size - 1) {
-            size += 32;
-
-            token_list = realloc(token_list, sizeof(token_t) * size);
-        }
-
-        switch (*line) {
-            case '<':
-                if (status == START) {
-                    return NULL;
-                } else if (status == WORDO) {
-                    // add null byte
-                    token_list[i].str[token_list[i].index] = '\0';
-
-                    i++;
-                    token_list[i].str[0] = '<';
-                    status = REDIRECT_IN;
-                    in_word = 1;
-                } else if (status == REDIRECT_IN || status == REDIRECT_OUT || status == REDIRECT_PIPE || status == REDIRECT_APPEND) {
-                    return NULL;
-                } break;
-
-            case '|':
-                if (status == START) {
-                    return NULL;
-                } else if (status == WORDO) {
-                    // add null byte
-                    token_list[i].str[token_list[i].index] = '\0';
-
-                    i++;
-                    token_list[i].str[0] = '|';
-                    status = REDIRECT_PIPE;
-                    in_word = 1;
-                } else if (status == REDIRECT_IN || status == REDIRECT_OUT || status == REDIRECT_PIPE || status == REDIRECT_APPEND) {
-                    return NULL;
-                } break;
-
-            case '>':
-                if (status == START) {
-                    return NULL;
-                } else if (status == WORDO) {
-                    // add null byte
-                    token_list[i].str[token_list[i].index] = '\0';
-
-                    i++;
-                    token_list[i].str[0] = '>';
-                    status = REDIRECT_PIPE;
-                    in_word = 1;
-                } else if (status == REDIRECT_IN || status == REDIRECT_PIPE || status == REDIRECT_APPEND) {
-                    return NULL;
-                } else if (status == REDIRECT_OUT && in_word) {
-                    token_list[i].str[1] = '>';
-                    status = REDIRECT_APPEND;
-                } else if (status == REDIRECT_OUT && !in_word) {
-
-                } break;   
-
-            case ' ':
-                if (status != START && in_word == 1) {
-                    in_word = 0;
-                }
-                break;
-
-            default:
-                if (status != WORDO && status != START || !in_word) {
-                    i++; 
-                } 
-
-                status = WORDO;
-                in_word = 1;
-                token_list[i].str[token_list[i].index++] = *line;
-        };
-
-
-        line++;
-    }
-
-    return token_list;
-}
 
 token_t *tokenizer(char *line) {
     token_t *token_list;
-    int size, i;
-    enum tokenizer_status status;
+    int token_array_size, token_buf_size;
+    int i, j, str_index;
+    tokenizer_status status;
 
-    size = 32;
-    token_list = (token_t *) malloc(sizeof(token_t) * size);
-
-    for (int j = 0; j < size; ++j) {
-        token_list[j].index = 0;
-    }
+    token_array_size = 32;
+    token_list = (token_t *) malloc(sizeof(token_t) * token_array_size);
 
     i = -1;
-    status = WORDOUT;
-    int in_word = 0;
+    status = STATUS_WORDOUT;
 
-    
     while (*line != '\0') {
-        if (i >= size - 1) {
-            size += 32;
+        if (i >= token_array_size - 2) {
+            token_array_size += 32;
 
-            token_list = realloc(token_list, sizeof(token_t) * size);
+            token_list = realloc(token_list, sizeof(token_t) * token_array_size);
+
+            if (token_list == NULL) {
+                goto err;
+            }
         }
 
         switch (*line) {
             case '<':
                 i++;
                 token_list[i].type = REDIRECT_IN;
-                status = WORDOUT;
-
+                token_list[i].str = NULL;
+                status = STATUS_WORDOUT;
                 break;
+
             case '|':
                 i++;
                 token_list[i].type = REDIRECT_PIPE;
-                status = WORDOUT;
-
+                token_list[i].str = NULL;
+                status = STATUS_WORDOUT;
                 break;
 
             case '>':
-                if (status == REDIRECT_OUT) {
+                if (status == STATUS_REDIRECT_OUT) {
                     token_list[i].type = REDIRECT_APPEND;
-                    status = WORDOUT;
+                    status = STATUS_WORDOUT;
                 } else {
                     i++;
                     token_list[i].type = REDIRECT_OUT;
-                    status = REDIRECT_OUT;
-                }
-
-                
-  
-                
+                    token_list[i].str = NULL;
+                    status = STATUS_REDIRECT_OUT;
+                } 
                 break;
+
             case ' ':
-                status = WORDOUT;
+                status = STATUS_WORDOUT;
+                break;
+
+            case '\r':
+                status = STATUS_WORDOUT;
+                break;
+
+            case '\t':
+                status = STATUS_WORDOUT;
                 break;
 
             default:
-                if (status == WORDOUT || status == REDIRECT_OUT) {
+                if (status == STATUS_WORDOUT || status == STATUS_REDIRECT_OUT) {
                     i++;
+                    token_buf_size = 32;
+
+                    token_list[i].str = (char *) malloc(token_buf_size);
+                    if (token_list[i].str == NULL) {
+                        goto err;
+                    }
+
+                    token_list[i].type = WORD_TYPE;
+                    token_list[i].index = 0;
                 }
 
-                token_list[i].str[token_list[i].index++] = *line;
-                status = WORDIN;
-        };
+                if (token_list[i].index >= token_buf_size - 1) {
+                    token_buf_size += 32;
+                    token_list[i].str = (char *) realloc(token_list[i].str, token_buf_size);
 
+                    if (token_list[i].str == NULL) {
+                        goto err;
+                    }
+                }
+
+                str_index = token_list[i].index++;
+                token_list[i].str[str_index] = *line;
+                str_index = token_list[i].index;
+                token_list[i].str[str_index] = '\0';
+
+                status = STATUS_WORDIN; 
+        };
 
         line++;
     }
 
+    token_list[++i].type = NULL_TYPE;
     return token_list;
+
+    err:
+        fprintf(stderr, "memory allocation error\n");
+        
+        for (j = 0; j < i; ++j) {       
+            free(token_list[j].str);
+        }
+
+        free(token_list);
+        return NULL;
 }
 
 
