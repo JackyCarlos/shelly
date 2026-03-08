@@ -134,7 +134,8 @@ char *read_line(void) {
     while (c != EOF && c != '\n') {
         if (line2 - line == buf_size) {
             buf_size += 64;
-            line = (char *) realloc(line, buf_size);
+            line = line2 = (char *) realloc(line, buf_size);
+            line2 += (buf_size - 64);
         }
 
         *line2++ = c;
@@ -272,7 +273,6 @@ token_t *tokenizer(char *line) {
                 }
 
                 if (token_list[i].index >= token_buf_size - 1) {
-                    printf("enlarged\n");
                     token_buf_size += 32;
                     token_list[i].str = (char *) realloc(token_list[i].str, token_buf_size);
 
@@ -282,7 +282,6 @@ token_t *tokenizer(char *line) {
                 }
 
                 str_index = token_list[i].index;
-                printf("writing to index %d\n", str_index);
                 token_list[i].str[str_index] = *line;
                 token_list[i].index += 1;
                 str_index = token_list[i].index;
@@ -307,11 +306,3 @@ token_t *tokenizer(char *line) {
         free(token_list);
         return NULL;
 }
-
-
-// typedef struct {
-//     char **tokens;
-//     char *input_file;
-//     char *output_file;
-//     char *append_file;
-// } execution_context_t;
