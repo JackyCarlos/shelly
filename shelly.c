@@ -194,8 +194,6 @@ execution_context_t *parse_line(char *line) {
     return execution_context;
 }
 
-
-
 token_t *tokenizer(char *line) {
     token_t *token_list;
     int token_array_size, token_buf_size;
@@ -281,10 +279,9 @@ token_t *tokenizer(char *line) {
                     }
                 }
 
-                str_index = token_list[i].index;
+                str_index = token_list[i].index++;
                 token_list[i].str[str_index] = *line;
-                token_list[i].index += 1;
-                str_index = token_list[i].index;
+                str_index++;
                 token_list[i].str[str_index] = '\0';
 
                 status = STATUS_WORDIN; 
