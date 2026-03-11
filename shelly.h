@@ -5,6 +5,10 @@ typedef struct {
 
 typedef struct {
     char **tokens;
+    int tokens_index = 0;
+    tokenizer_status enum status;
+
+
     char *input_file;
     char *output_file;
     char *append_file;
@@ -20,10 +24,23 @@ typedef enum {
 } token_type;
 
 typedef enum {
-    STATUS_WORDOUT,
-    STATUS_WORDIN,
-    STATUS_REDIRECT_OUT,
+    STATUS_TOKENIZER_WORDOUT,
+    STATUS_TOKENIZER_WORDIN,
+    STATUS_TOKENIZER_REDIRECT_OUT,
 } tokenizer_status;
+
+typedef enum {
+    CONTEXT_COMMAND_TYPE;
+    CONTEXT_END_TYPE
+} context_type;
+
+typedef enum {
+    STATUS_CONTEXT_INIT,
+    STATUS_CONTEXT_WORD,
+    STATUS_CONTEXT_REDIRECT,
+    STATUS_CONTEXT_PIPE
+} context_status;
+
 
 typedef struct {
     token_type type;

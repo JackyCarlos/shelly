@@ -95,6 +95,79 @@ int launch_command(execution_context_t *context) {
     return 1;
 }
 
+
+
+execution_context_t *get_context(*token_t token_list) {
+    execution_context_t *contexts;
+    int i;
+    context_status enum status;
+    char **tokens;
+
+    contexts = (execution_context_t *) malloc(sizeof(execution_context_t) * 32);
+    i = 0;
+
+    contexts[0].status = CONTEXT_END_TYPE;
+    status = STATUS_CONTEXT_INIT;
+
+    while (token_list->type != NULL_TYPE) {
+
+        switch (token_list->type) {
+            case REDIRECT_OUT_TYPE:
+                if (status = STATUS_CONTEXT_INIT || status = ) {
+                    return NULL;
+                }
+
+                break;
+
+            case REDIRECT_IN_TYPE:
+                if (status = STATUS_CONTEXT_INIT || ) {
+                    return NULL;
+                }
+
+                break;
+
+            case REDIRECT_PIPE_TYPE: 
+                if (status = STATUS_CONTEXT_INIT) {
+                    return NULL;
+                }
+
+                break;
+
+            case REDIRECT_APPEND_TYPE: 
+                if (status = STATUS_CONTEXT_INIT) {
+                    return NULL;
+                }
+
+                break;
+
+            default: 
+
+
+                contexts[i].status = CONTEXT_COMMAND_TYPE;
+
+                int tokens_index = contexts[i].tokens_index;
+
+                if (tokens_index == 0) {
+                    int tokens_size = 8;
+                    contexts[i].tokens = malloc(sizeof(char *) * tokens_size);
+                } // left to do check for tokens_index - 1 == tokens_size and reallocate if necessary
+
+                contexts[i].tokens[tokens_index++] = token_list->ptr;
+                contexts[i].tokens[tokens_index] = NULL;
+
+        }
+        
+        token_list++;
+
+    }
+
+
+
+
+
+
+}
+
 char *read_line(void) {
     char *line, *line2;
     int buf_size, c;
