@@ -12,10 +12,10 @@ typedef struct {
 
 typedef enum {
     WORD_TYPE,
-    REDIRECT_OUT,
-    REDIRECT_IN,
-    REDIRECT_PIPE,
-    REDIRECT_APPEND,
+    REDIRECT_OUT_TYPE,
+    REDIRECT_IN_TYPE,
+    REDIRECT_PIPE_TYPE,
+    REDIRECT_APPEND_TYPE,
     NULL_TYPE
 } token_type;
 
@@ -35,4 +35,4 @@ typedef struct {
 extern builtin_h builtins[];
 int builtins_size(void);
 
-#define      PATH_MAX        1024
+#define      MAX_PATH_LEN        1024
