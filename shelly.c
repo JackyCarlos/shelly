@@ -15,29 +15,6 @@ int launch_command(execution_context_t *context);
 token_t *get_tokens(char *line); 
 token_t *tokenizer(char *line);
 
-int main(int argc, char *argv[]) {
-    // shelly_loop();
-
-    token_t *token_list;
-    char *line;
-
-    line = read_line();
-    printf("line:::: %s\n", line);
-    token_list = tokenizer(line); // get_tokens(line);
-
-    if (token_list == NULL) {
-        fprintf(stderr, "parsing error\n");
-        return 0;
-    }
-
-    while (token_list->type != NULL_TYPE) {
-        printf("token: %s, type:%d\n", token_list->str, token_list->type);
-        token_list++;
-    }
-    
-    return 0;
-}
-
 void shelly_loop(void) {
     char *line;
     execution_context_t *context;
@@ -49,7 +26,7 @@ void shelly_loop(void) {
         print_cli();
         
         line = read_line();
-        context = parse_line(line);
+        //context = parse_line(line);
         
         status = run_command(context); 
         
@@ -63,7 +40,7 @@ void print_cli(void) {
     char *cwd, *user;
     char hostname[64];
 
-    cwd = getcwd(NULL, PATH_MAX);
+    cwd = getcwd(NULL, MAX_PATH_LEN);
     user = getlogin();
     gethostname(hostname, sizeof(hostname));
 
@@ -147,53 +124,6 @@ char *read_line(void) {
     return line;
 }
 
-execution_context_t *parse_line(char *line) {
-    char *delim, *token, **tokens, **tokens2;
-    execution_context_t *execution_context;
-    int size;
-
-    delim = " \t\r";
-    size = 32;
-    tokens = tokens2 = (char **) malloc(sizeof(char *) * size);
-    execution_context = malloc(sizeof(execution_context_t));
-
-    if (tokens == NULL) {
-        fprintf(stderr, "memory allocation error. Terminating .. \n");
-        exit(0);        
-    }
-
-    token = strtok(line, delim);
-
-    while (token != NULL) {
-        if (tokens2 - tokens == size) {
-            size += 32;
-            tokens = (char **) realloc(tokens, sizeof(char *) * size);
-
-            if (tokens == NULL) {
-                fprintf(stderr, "memory allocation error. Terminating .. \n");
-                exit(0);        
-            }
-        }
-
-        if (strcmp(token, ">") == 0) {
-            execution_context->output_file = strtok(NULL, delim);
-        } else if (strcmp(token, ">>") == 0) {
-            execution_context->append_file = strtok(NULL, delim);
-        } else if (strcmp(token, "<") == 0) {
-            execution_context->input_file = strtok(NULL, delim);
-        } else {
-            *tokens2++ = token;             
-        }
-
-        token = strtok(NULL, delim);
-    }
-
-    *tokens2 = NULL;
-    execution_context->tokens = tokens;
-
-    return execution_context;
-}
-
 token_t *tokenizer(char *line) {
     token_t *token_list;
     int token_array_size, token_buf_size;
@@ -220,25 +150,25 @@ token_t *tokenizer(char *line) {
         switch (*line) {
             case '<':
                 i++;
-                token_list[i].type = REDIRECT_IN;
+                token_list[i].type = REDIRECT_IN_TYPE;
                 token_list[i].str = NULL;
                 status = STATUS_WORDOUT;
                 break;
 
             case '|':
                 i++;
-                token_list[i].type = REDIRECT_PIPE;
+                token_list[i].type = REDIRECT_PIPE_TYPE;
                 token_list[i].str = NULL;
                 status = STATUS_WORDOUT;
                 break;
 
             case '>':
                 if (status == STATUS_REDIRECT_OUT) {
-                    token_list[i].type = REDIRECT_APPEND;
+                    token_list[i].type = REDIRECT_APPEND_TYPE;
                     status = STATUS_WORDOUT;
                 } else {
                     i++;
-                    token_list[i].type = REDIRECT_OUT;
+                    token_list[i].type = REDIRECT_OUT_TYPE;
                     token_list[i].str = NULL;
                     status = STATUS_REDIRECT_OUT;
                 } 
