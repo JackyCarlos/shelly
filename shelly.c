@@ -101,7 +101,6 @@ execution_context_t *get_context(*token_t token_list) {
     execution_context_t *contexts;
     int i;
     context_status enum status;
-    char **tokens;
 
     contexts = (execution_context_t *) malloc(sizeof(execution_context_t) * 32);
     i = 0;
@@ -140,9 +139,7 @@ execution_context_t *get_context(*token_t token_list) {
 
                 break;
 
-            default: 
-
-
+            default:
                 contexts[i].status = CONTEXT_COMMAND_TYPE;
 
                 int tokens_index = contexts[i].tokens_index;
@@ -154,7 +151,7 @@ execution_context_t *get_context(*token_t token_list) {
 
                 contexts[i].tokens[tokens_index++] = token_list->ptr;
                 contexts[i].tokens[tokens_index] = NULL;
-
+                contexts[i].tokens_index++;
         }
         
         token_list++;
