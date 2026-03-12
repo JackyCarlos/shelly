@@ -95,16 +95,19 @@ int launch_command(execution_context_t *context) {
     return 1;
 }
 
-
-
 execution_context_t *get_context(token_t *token_list) {
-
-    return NULL;
-/*     execution_context_t *contexts;
+    execution_context_t *contexts;
     int i;
-    context_status enum status;
+    context_status status;
+    int tokens_index;   // index in the token array of a single context 
+    int tokens_size;    // size of the char * array of a single context
 
+    // replace 32 with symbolic constant 
     contexts = (execution_context_t *) malloc(sizeof(execution_context_t) * 32);
+    for (int j; j < 32; ++j) {
+        contexts[j].tokens_index = 0;
+    }
+    
     i = 0;
 
     contexts[0].status = CONTEXT_END_TYPE;
@@ -114,57 +117,75 @@ execution_context_t *get_context(token_t *token_list) {
 
         switch (token_list->type) {
             case REDIRECT_OUT_TYPE:
-                if (status = STATUS_CONTEXT_INIT || status = ) {
+                if (status != STATUS_CONTEXT_WORD) {
                     return NULL;
                 }
 
+                status = STATUS_CONTEXT_REDIRECT_OUT;
                 break;
 
             case REDIRECT_IN_TYPE:
-                if (status = STATUS_CONTEXT_INIT || ) {
+                if (status != STATUS_CONTEXT_WORD) {
                     return NULL;
                 }
 
+                status = STATUS_CONTEXT_REDIRECT_IN;
                 break;
 
             case REDIRECT_PIPE_TYPE: 
-                if (status = STATUS_CONTEXT_INIT) {
+                if (status != STATUS_CONTEXT_WORD) {
                     return NULL;
                 }
-
+                contexts[i].flags |= INTO_PIPE;
+                i++;
+                status = STATUS_CONTEXT_PIPE;
                 break;
 
             case REDIRECT_APPEND_TYPE: 
-                if (status = STATUS_CONTEXT_INIT) {
+                if (status != STATUS_CONTEXT_WORD) {
                     return NULL;
                 }
 
+                status = STATUS_CONTEXT_REDIRECT_APPEND;
                 break;
 
             default:
-                contexts[i].status = CONTEXT_COMMAND_TYPE;
+                if (status == STATUS_CONTEXT_REDIRECT_OUT) {
+                    contexts[i].output_file = token_list->str;
+                    contexts[i].flags |= OUT;
 
-                int tokens_index = contexts[i].tokens_index;
+                } else if (status == STATUS_CONTEXT_REDIRECT_IN) {
+                    contexts[i].input_file = token_list->str;
+                    contexts[i].flags |= IN;
 
-                if (tokens_index == 0) {
-                    int tokens_size = 8;
-                    contexts[i].tokens = malloc(sizeof(char *) * tokens_size);
-                } // left to do check for tokens_index - 1 == tokens_size and reallocate if necessary
+                } else if (status == STATUS_CONTEXT_REDIRECT_APPEND) {
+                    contexts[i].append_file = token_list->str;
+                    contexts[i].flags |= APPEND;
 
-                contexts[i].tokens[tokens_index++] = token_list->ptr;
-                contexts[i].tokens[tokens_index] = NULL;
-                contexts[i].tokens_index++;
+                } else if (status == STATUS_CONTEXT_PIPE) {
+                    contexts[i].flags |= OUT_OF_PIPE;
+
+                } else {
+                    tokens_index = contexts[i].tokens_index;
+
+                    if (tokens_index == 0) {
+                        contexts[i].status = CONTEXT_COMMAND_TYPE;
+                        contexts[i + 1].status = CONTEXT_END_TYPE;
+
+                        tokens_size = 8;
+                        contexts[i].tokens = malloc(sizeof(char *) * tokens_size);
+                    } // left to do check for tokens_index - 1 == tokens_size and reallocate if necessary
+
+                    contexts[i].tokens[tokens_index++] = token_list->str;
+                    contexts[i].tokens[tokens_index] = NULL;
+                    contexts[i].tokens_index++;
+                }
+
+                status = STATUS_CONTEXT_WORD;
         }
         
         token_list++;
-
-    } */
-
-
-
-
-
-
+    } 
 }
 
 char *read_line(void) {
