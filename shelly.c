@@ -97,8 +97,10 @@ int launch_command(execution_context_t *context) {
 
 
 
-execution_context_t *get_context(*token_t token_list) {
-    execution_context_t *contexts;
+execution_context_t *get_context(token_t *token_list) {
+
+    return NULL;
+/*     execution_context_t *contexts;
     int i;
     context_status enum status;
 
@@ -156,7 +158,7 @@ execution_context_t *get_context(*token_t token_list) {
         
         token_list++;
 
-    }
+    } */
 
 
 
@@ -204,10 +206,10 @@ token_t *tokenizer(char *line) {
     token_list = (token_t *) malloc(sizeof(token_t) * token_array_size);
 
     i = -1;
-    status = STATUS_WORDOUT;
+    status = STATUS_TOKENIZER_WORDOUT;
 
     while (*line != '\0') {
-        if (i >= token_array_size - 2) {
+        if (i == token_array_size - 2) {
             token_array_size += 32;
 
             token_list = realloc(token_list, sizeof(token_t) * token_array_size);
@@ -222,42 +224,42 @@ token_t *tokenizer(char *line) {
                 i++;
                 token_list[i].type = REDIRECT_IN_TYPE;
                 token_list[i].str = NULL;
-                status = STATUS_WORDOUT;
+                status = STATUS_TOKENIZER_WORDOUT;
                 break;
 
             case '|':
                 i++;
                 token_list[i].type = REDIRECT_PIPE_TYPE;
                 token_list[i].str = NULL;
-                status = STATUS_WORDOUT;
+                status = STATUS_TOKENIZER_WORDOUT;
                 break;
 
             case '>':
-                if (status == STATUS_REDIRECT_OUT) {
+                if (status == STATUS_TOKENIZER_REDIRECT_OUT) {
                     token_list[i].type = REDIRECT_APPEND_TYPE;
-                    status = STATUS_WORDOUT;
+                    status = STATUS_TOKENIZER_WORDOUT;
                 } else {
                     i++;
                     token_list[i].type = REDIRECT_OUT_TYPE;
                     token_list[i].str = NULL;
-                    status = STATUS_REDIRECT_OUT;
+                    status = STATUS_TOKENIZER_REDIRECT_OUT;
                 } 
                 break;
 
             case ' ':
-                status = STATUS_WORDOUT;
+                status = STATUS_TOKENIZER_WORDOUT;
                 break;
 
             case '\r':
-                status = STATUS_WORDOUT;
+                status = STATUS_TOKENIZER_WORDOUT;
                 break;
 
             case '\t':
-                status = STATUS_WORDOUT;
+                status = STATUS_TOKENIZER_WORDOUT;
                 break;
 
             default:
-                if (status == STATUS_WORDOUT || status == STATUS_REDIRECT_OUT) {
+                if (status == STATUS_TOKENIZER_WORDOUT || status == STATUS_TOKENIZER_REDIRECT_OUT) {
                     i++;
                     token_buf_size = 32;
 
@@ -284,13 +286,13 @@ token_t *tokenizer(char *line) {
                 str_index++;
                 token_list[i].str[str_index] = '\0';
 
-                status = STATUS_WORDIN; 
+                status = STATUS_TOKENIZER_WORDIN; 
         };
 
         line++;
     }
 
-    token_list[++i].type = NULL_TYPE;
+    token_list[i + 1].type = NULL_TYPE;
     return token_list;
 
     err:
