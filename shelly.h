@@ -3,17 +3,6 @@ typedef struct {
     int (*builtin)(char **tokens);
 } builtin_h; 
 
-typedef struct {
-    char **tokens;
-    int tokens_index = 0;
-    tokenizer_status enum status;
-
-
-    char *input_file;
-    char *output_file;
-    char *append_file;
-} execution_context_t;
-
 typedef enum {
     WORD_TYPE,
     REDIRECT_OUT_TYPE,
@@ -30,7 +19,7 @@ typedef enum {
 } tokenizer_status;
 
 typedef enum {
-    CONTEXT_COMMAND_TYPE;
+    CONTEXT_COMMAND_TYPE,
     CONTEXT_END_TYPE
 } context_type;
 
@@ -48,6 +37,16 @@ typedef struct {
     int index;
 } token_t;
 
+typedef struct {
+    char **tokens;
+    int tokens_index;
+    tokenizer_status status;
+
+
+    char *input_file;
+    char *output_file;
+    char *append_file;
+} execution_context_t;
 
 extern builtin_h builtins[];
 int builtins_size(void);
