@@ -26,10 +26,20 @@ typedef enum {
 typedef enum {
     STATUS_CONTEXT_INIT,
     STATUS_CONTEXT_WORD,
-    STATUS_CONTEXT_REDIRECT,
+    STATUS_CONTEXT_REDIRECT_IN,
+    STATUS_CONTEXT_REDIRECT_OUT,
+    STATUS_CONTEXT_REDIRECT_APPEND,
     STATUS_CONTEXT_PIPE
 } context_status;
 
+typedef enum {
+    EMPTY           = 0,
+    IN              = 1,
+    OUT             = 2,
+    APPEND          = 4,
+    INTO_PIPE       = 8,
+    OUT_OF_PIPE     = 16
+} redirect_flags;
 
 typedef struct {
     token_type type;
@@ -40,9 +50,8 @@ typedef struct {
 typedef struct {
     char **tokens;
     int tokens_index;
-    tokenizer_status status;
 
-
+    redirect_flags flags;
     char *input_file;
     char *output_file;
     char *append_file;
