@@ -110,12 +110,11 @@ execution_context_t *get_context(token_t *token_list) {
     
     i = 0;
 
-    contexts[0].status = CONTEXT_END_TYPE;
+    contexts[0].type = CONTEXT_END_TYPE;
     status = STATUS_CONTEXT_INIT;
 
     while (token_list->type != NULL_TYPE) {
-
-        switch (token_list->type) {
+                switch (token_list->type) {
             case REDIRECT_OUT_TYPE:
                 if (status != STATUS_CONTEXT_WORD) {
                     return NULL;
@@ -169,8 +168,8 @@ execution_context_t *get_context(token_t *token_list) {
                     tokens_index = contexts[i].tokens_index;
 
                     if (tokens_index == 0) {
-                        contexts[i].status = CONTEXT_COMMAND_TYPE;
-                        contexts[i + 1].status = CONTEXT_END_TYPE;
+                        contexts[i].type = CONTEXT_COMMAND_TYPE;
+                        contexts[i + 1].type = CONTEXT_END_TYPE;
 
                         tokens_size = 8;
                         contexts[i].tokens = malloc(sizeof(char *) * tokens_size);
@@ -186,6 +185,12 @@ execution_context_t *get_context(token_t *token_list) {
         
         token_list++;
     } 
+
+    if (status != STATUS_CONTEXT_WORD) {
+        return NULL;
+    }
+
+    return contexts;
 }
 
 char *read_line(void) {
