@@ -48,6 +48,8 @@ typedef struct {
 } token_t;
 
 typedef struct {
+    context_type type;
+
     char **tokens;
     int tokens_index;
 
