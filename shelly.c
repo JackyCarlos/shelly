@@ -103,6 +103,7 @@ execution_context_t *get_context(token_t *token_list) {
     int tokens_size;    // size of the char * array of a single context
 
     // replace 32 with symbolic constant 
+    // put in separate function to initiate contexts
     contexts = (execution_context_t *) malloc(sizeof(execution_context_t) * 32);
     for (int j; j < 32; ++j) {
         contexts[j].tokens_index = 0;
