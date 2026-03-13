@@ -15,6 +15,8 @@ int launch_command(execution_context_t *context);
 token_t *get_tokens(char *line); 
 token_t *tokenizer(char *line);
 
+static void initiate_contexts(execution_context_t *contexts);
+
 void shelly_loop(void) {
     char *line;
     execution_context_t *context;
