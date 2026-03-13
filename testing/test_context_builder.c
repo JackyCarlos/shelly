@@ -88,6 +88,26 @@ void test_context_builder_statements_without_redirection(void) {
     TEST_ASSERT_TRUE(context_list[0].tokens[5] == NULL);
 }
 
+void test_context_builder_statements_with_redirection_1(void) {
+    token_t *token_list;
+    execution_context_t *context_list;
+    int out_flag;
+
+    token_list = tokenizer("echo aaa > outfile");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list != NULL);
+    TEST_ASSERT_TRUE(context_list[0].type == CONTEXT_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[1].type == CONTEXT_END_TYPE);
+
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "echo") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[1], "aaa") == 0);
+    TEST_ASSERT_TRUE(context_list[0].tokens[2] == NULL);
+
+    out_flag = context_list[0].flags &= OUT;
+    TEST_ASSERT_TRUE(out_flag == OUT);
+
+    TEST_ASSERT_TRUE(strcmp(context_list[0].output_file, "outfile") == 0);
+}
 
 int main(void) {
     UNITY_BEGIN();
@@ -96,6 +116,7 @@ int main(void) {
     RUN_TEST(test_context_builder_bad_syntax_2);
     RUN_TEST(test_context_builder_no_tokens);
     RUN_TEST(test_context_builder_statements_without_redirection);
+    RUN_TEST(test_context_builder_statements_with_redirection_1);
 
     return UNITY_END();
 }
