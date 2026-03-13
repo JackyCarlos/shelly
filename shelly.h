@@ -33,7 +33,6 @@ typedef enum {
 } context_status;
 
 typedef enum {
-    EMPTY           = 0,
     IN              = 1,
     OUT             = 2,
     APPEND          = 4,
