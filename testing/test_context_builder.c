@@ -168,6 +168,76 @@ void test_context_builder_command_with_pipe_1(void) {
     TEST_ASSERT_TRUE(context_list[1].flags == 16);
 }   
 
+void test_context_builder_command_with_pipe_2(void) {
+    token_t *token_list;
+    execution_context_t *context_list;
+    int pipe_output_flag, pipe_input_flag, out_flag, in_flag;
+
+    token_list = tokenizer("command < input > output aaa | command2 | command3 -v >> output2 -B < input2 | command4 bbb");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list != NULL);
+    TEST_ASSERT_TRUE(context_list[0].type == CONTEXT_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[1].type == CONTEXT_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[2].type == CONTEXT_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[3].type == CONTEXT_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[4].type == CONTEXT_END_TYPE);
+
+
+    // first command
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "command") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[1], "aaa") == 0);
+    TEST_ASSERT_TRUE(context_list[0].tokens[2] == NULL);
+
+    pipe_input_flag = context_list[0].flags & INTO_PIPE;
+    pipe_output_flag = context_list[0].flags & OUT_OF_PIPE;
+    in_flag = (context_list[0].flags & IN);
+    out_flag = (context_list[0].flags & OUT);
+
+    TEST_ASSERT_TRUE(pipe_input_flag == INTO_PIPE);
+    TEST_ASSERT_FALSE(pipe_output_flag == OUT_OF_PIPE);
+    TEST_ASSERT_TRUE(in_flag == IN); 
+    TEST_ASSERT_TRUE(out_flag == OUT);
+
+    TEST_ASSERT_TRUE(strcmp(context_list[0].input_file, "input") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].output_file, "output") == 0);
+
+
+    // second command
+    TEST_ASSERT_TRUE(strcmp(context_list[1].tokens[0], "command2") == 0);
+    TEST_ASSERT_TRUE(context_list[1].tokens[1] == NULL);
+
+    pipe_input_flag = context_list[1].flags & INTO_PIPE;
+    pipe_output_flag = context_list[1].flags & OUT_OF_PIPE;
+
+    TEST_ASSERT_TRUE(pipe_input_flag == INTO_PIPE);
+    TEST_ASSERT_TRUE(pipe_output_flag == OUT_OF_PIPE);
+
+
+    // third command
+    TEST_ASSERT_TRUE(strcmp(context_list[2].tokens[0], "command3") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[2].tokens[1], "-v") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[2].tokens[2], "-B") == 0);
+    TEST_ASSERT_TRUE(context_list[2].tokens[3] == NULL);
+
+    pipe_input_flag = context_list[2].flags & INTO_PIPE;
+    pipe_output_flag = context_list[2].flags & OUT_OF_PIPE;
+
+    TEST_ASSERT_TRUE(pipe_input_flag == INTO_PIPE);
+    TEST_ASSERT_TRUE(pipe_output_flag == OUT_OF_PIPE);
+
+
+    // fourth command
+    TEST_ASSERT_TRUE(strcmp(context_list[3].tokens[0], "command4") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[3].tokens[1], "bbb") == 0);
+    TEST_ASSERT_TRUE(context_list[3].tokens[2] == NULL);
+
+    pipe_input_flag = context_list[3].flags & INTO_PIPE;
+    pipe_output_flag = context_list[3].flags & OUT_OF_PIPE;
+
+    TEST_ASSERT_FALSE(pipe_input_flag == INTO_PIPE);
+    TEST_ASSERT_TRUE(pipe_output_flag == OUT_OF_PIPE);
+}   
+
 int main(void) {
     UNITY_BEGIN();
 
@@ -178,6 +248,7 @@ int main(void) {
     RUN_TEST(test_context_builder_command_with_redirection_1);
     RUN_TEST(test_context_builder_command_with_redirection_2);
     RUN_TEST(test_context_builder_command_with_pipe_1);
+    RUN_TEST(test_context_builder_command_with_pipe_2);
 
     return UNITY_END();
 }
