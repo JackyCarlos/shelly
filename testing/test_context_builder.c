@@ -70,7 +70,7 @@ void test_context_builder_no_tokens(void) {
     TEST_ASSERT_TRUE(context_list[0].type == CONTEXT_END_TYPE);
 }
 
-void test_context_builder_statements_without_redirection(void) {
+void test_context_builder_command_without_redirection(void) {
     token_t *token_list;
     execution_context_t *context_list;
 
@@ -88,7 +88,7 @@ void test_context_builder_statements_without_redirection(void) {
     TEST_ASSERT_TRUE(context_list[0].tokens[5] == NULL);
 }
 
-void test_context_builder_statements_with_redirection_1(void) {
+void test_context_builder_command_with_redirection_1(void) {
     token_t *token_list;
     execution_context_t *context_list;
     int out_flag;
@@ -109,7 +109,7 @@ void test_context_builder_statements_with_redirection_1(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[0].output_file, "outfile") == 0);
 }
 
-void test_context_builder_statements_with_redirection_2(void) {
+void test_context_builder_command_with_redirection_2(void) {
     token_t *token_list;
     execution_context_t *context_list;
     int in_flag, out_flag, append_flag;
@@ -141,15 +141,17 @@ void test_context_builder_statements_with_redirection_2(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[0].append_file, "appendfile") == 0); 
 }   
 
+
+
 int main(void) {
     UNITY_BEGIN();
 
     RUN_TEST(test_context_builder_bad_syntax_1);
     RUN_TEST(test_context_builder_bad_syntax_2);
     RUN_TEST(test_context_builder_no_tokens);
-    RUN_TEST(test_context_builder_statements_without_redirection);
-    RUN_TEST(test_context_builder_statements_with_redirection_1);
-    RUN_TEST(test_context_builder_statements_with_redirection_2);
+    RUN_TEST(test_context_builder_command_without_redirection);
+    RUN_TEST(test_context_builder_command_with_redirection_1);
+    RUN_TEST(test_context_builder_command_with_redirection_2);
 
     return UNITY_END();
 }
