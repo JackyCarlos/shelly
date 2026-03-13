@@ -101,7 +101,8 @@ static void initiate_contexts(execution_context_t *contexts) {
     int i;
 
     for (i = 0; i < 32; ++i) {
-        contexts[i].tokens_index = 0;
+        contexts[i].tokens_index    = 0;
+        contexts[i].flags           = 0;
     }
 }
 
