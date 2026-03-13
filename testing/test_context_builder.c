@@ -70,6 +70,24 @@ void test_context_builder_no_tokens(void) {
     TEST_ASSERT_TRUE(context_list[0].type == CONTEXT_END_TYPE);
 }
 
+void test_context_builder_statements_without_redirection(void) {
+    token_t *token_list;
+    execution_context_t *context_list;
+
+    token_list = tokenizer("echo aaa bbb ccc ddd");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list != NULL);
+    TEST_ASSERT_TRUE(context_list[0].type == CONTEXT_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[1].type == CONTEXT_END_TYPE);
+
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "echo") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[1], "aaa") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[2], "bbb") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[3], "ccc") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[4], "ddd") == 0);
+    TEST_ASSERT_TRUE(context_list[0].tokens[5] == NULL);
+}
+
 
 int main(void) {
     UNITY_BEGIN();
@@ -77,6 +95,7 @@ int main(void) {
     RUN_TEST(test_context_builder_bad_syntax_1);
     RUN_TEST(test_context_builder_bad_syntax_2);
     RUN_TEST(test_context_builder_no_tokens);
+    RUN_TEST(test_context_builder_statements_without_redirection);
 
     return UNITY_END();
 }
