@@ -208,7 +208,7 @@ execution_context_t *get_context(token_t *token_list) {
         token_list++;
     } 
 
-    if (status != STATUS_CONTEXT_WORD) {
+    if (status != STATUS_CONTEXT_WORD && contexts[0].type != CONTEXT_END_TYPE) {
         return NULL;
     }
 
