@@ -141,7 +141,32 @@ void test_context_builder_command_with_redirection_2(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[0].append_file, "appendfile") == 0); 
 }   
 
+void test_context_builder_command_with_pipe_1(void) {
+    token_t *token_list;
+    execution_context_t *context_list;
+    int pipe_output_flag, pipe_input_flag;
 
+    token_list = tokenizer("command | command2");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list != NULL);
+    TEST_ASSERT_TRUE(context_list[0].type == CONTEXT_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[1].type == CONTEXT_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[2].type == CONTEXT_END_TYPE);
+
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "command") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[1].tokens[0], "command2") == 0);
+    TEST_ASSERT_TRUE(context_list[0].tokens[1] == NULL);
+    TEST_ASSERT_TRUE(context_list[1].tokens[1] == NULL);
+
+    pipe_input_flag = context_list[0].flags & INTO_PIPE;
+    TEST_ASSERT_TRUE(pipe_input_flag == INTO_PIPE);
+
+    pipe_output_flag = context_list[1].flags & OUT_OF_PIPE;
+    TEST_ASSERT_TRUE(pipe_output_flag == OUT_OF_PIPE);
+
+    TEST_ASSERT_TRUE(context_list[0].flags == 8);
+    TEST_ASSERT_TRUE(context_list[1].flags == 16);
+}   
 
 int main(void) {
     UNITY_BEGIN();
@@ -152,6 +177,7 @@ int main(void) {
     RUN_TEST(test_context_builder_command_without_redirection);
     RUN_TEST(test_context_builder_command_with_redirection_1);
     RUN_TEST(test_context_builder_command_with_redirection_2);
+    RUN_TEST(test_context_builder_command_with_pipe_1);
 
     return UNITY_END();
 }
