@@ -109,6 +109,38 @@ void test_context_builder_statements_with_redirection_1(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[0].output_file, "outfile") == 0);
 }
 
+void test_context_builder_statements_with_redirection_2(void) {
+    token_t *token_list;
+    execution_context_t *context_list;
+    int in_flag, out_flag, append_flag;
+
+    token_list = tokenizer("echo aaa bbb > outfile ccc < infile ddd >> appendfile eee");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list != NULL);
+    TEST_ASSERT_TRUE(context_list[0].type == CONTEXT_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[1].type == CONTEXT_END_TYPE);
+
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "echo") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[1], "aaa") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[2], "bbb") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[3], "ccc") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[4], "ddd") == 0);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[5], "eee") == 0);
+    TEST_ASSERT_TRUE(context_list[0].tokens[6] == NULL);
+
+    in_flag = (context_list[0].flags & IN);
+    TEST_ASSERT_TRUE(in_flag == IN); 
+    TEST_ASSERT_TRUE(strcmp(context_list[0].input_file, "infile") == 0);
+
+    out_flag = (context_list[0].flags & OUT);
+    TEST_ASSERT_TRUE(out_flag == OUT);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].output_file, "outfile") == 0);
+
+    append_flag = context_list[0].flags &= APPEND;
+    TEST_ASSERT_TRUE(append_flag == APPEND);
+    TEST_ASSERT_TRUE(strcmp(context_list[0].append_file, "appendfile") == 0); 
+}   
+
 int main(void) {
     UNITY_BEGIN();
 
@@ -117,6 +149,7 @@ int main(void) {
     RUN_TEST(test_context_builder_no_tokens);
     RUN_TEST(test_context_builder_statements_without_redirection);
     RUN_TEST(test_context_builder_statements_with_redirection_1);
+    RUN_TEST(test_context_builder_statements_with_redirection_2);
 
     return UNITY_END();
 }
