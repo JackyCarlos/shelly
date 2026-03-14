@@ -9,17 +9,20 @@
 void shelly_loop(void);
 void print_cli(void);
 char *read_line(void);
-execution_context_t *parse_line(char *line);
+
 int run_command(execution_context_t *context);
 int launch_command(execution_context_t *context);
-token_t *get_tokens(char *line); 
+
+token_t *tokenizer(char *line); 
+execution_context_t *get_context(token_t *);
 token_t *tokenizer(char *line);
 
 static void initiate_contexts(execution_context_t *contexts);
 
 void shelly_loop(void) {
     char *line;
-    execution_context_t *context;
+    token_t *token_list;
+    execution_context_t *context_list;
     int status;
 
     status = 1;
@@ -28,13 +31,14 @@ void shelly_loop(void) {
         print_cli();
         
         line = read_line();
-        //context = parse_line(line);
+        token_list = tokenizer(line);
+        context_list = get_context(token_list);
         
-        status = run_command(context); 
+        status = run_command(context_list); 
         
-        free(line);
-        free(context->tokens);
-        free(context);
+        // free(line);
+        // free(context->tokens);
+        // free(context);
     }
 }
 
@@ -51,21 +55,22 @@ void print_cli(void) {
     free(cwd);
 }
 
-int run_command(execution_context_t *context) {
+int run_command(execution_context_t *context_list) {
     int i;
 
     // when user just hits enter without cmd 
-    if (context->tokens[0] == NULL) {
+    if (context_list->type == CONTEXT_END_TYPE) {
+        printf("test");
         return 1;
     }
 
-    for (i = 0; i < builtins_size(); ++i) {
+/*     for (i = 0; i < builtins_size(); ++i) {
         if (strcmp(*context->tokens, builtins[i].name) == 0) {
             return builtins[i].builtin(context->tokens);
         }      
-    }
+    } */
 
-    return launch_command(context);
+    return launch_command(context_list);
 }
 
 int launch_command(execution_context_t *context) {
@@ -355,4 +360,10 @@ token_t *tokenizer(char *line) {
 
         free(token_list);
         return NULL;
+}
+
+int main() {
+    shelly_loop();
+
+    return 0;
 }
