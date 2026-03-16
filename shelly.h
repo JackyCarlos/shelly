@@ -1,3 +1,5 @@
+#define      MAX_PATH_LEN        1024
+
 typedef struct {
     const char name[64];
     int (*builtin)(char **tokens);
@@ -58,7 +60,14 @@ typedef struct {
     char *append_file;
 } execution_context_t;
 
+
 extern builtin_h builtins[];
 int builtins_size(void);
 
-#define      MAX_PATH_LEN        1024
+char *read_line(void);
+token_t *tokenizer(char *line); 
+
+execution_context_t *get_context(token_t *);
+static void initiate_contexts(execution_context_t *contexts);
+
+void shelly_loop(void);
