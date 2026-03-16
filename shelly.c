@@ -3,6 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <errno.h>
+#include <fcntl.h>
 
 #include "shelly.h"
 
@@ -14,6 +16,9 @@ static int launch_command(execution_context_t *context);
 static void free_context_list(execution_context_t *context_list);
 static void free_token_list(token_t *token_list);
 
+static void handle_error(int err, char *filename);
+
+int manipulate_fds(execution_context_t *context);
 
 void shelly_loop(void) {
     char *line;
@@ -29,6 +34,11 @@ void shelly_loop(void) {
         line = read_line();
         token_list = tokenizer(line);
         context_list = get_context(token_list);
+
+        if (context_list == NULL) {
+            fprintf(stderr, "syntax error\n");
+            continue;
+        }
         
         status = run_command(context_list); 
         
@@ -74,9 +84,15 @@ static int run_command(execution_context_t *context_list) {
 
     // when user just hits enter without cmd 
     if (context_list->type == CONTEXT_END_TYPE) {
-        printf("test");
         return 1;
     }
+
+    while (context_list->type != CONTEXT_END_TYPE) {
+        launch_command(context_list);
+        context_list++;
+    }
+
+
 
 /*     for (i = 0; i < builtins_size(); ++i) {
         if (strcmp(*context->tokens, builtins[i].name) == 0) {
@@ -84,7 +100,7 @@ static int run_command(execution_context_t *context_list) {
         }      
     } */
 
-    return launch_command(context_list);
+    return 1;
 }
 
 static int launch_command(execution_context_t *context) {
@@ -94,11 +110,8 @@ static int launch_command(execution_context_t *context) {
     pid = fork();
 
     if (pid == 0) {
-        if (context->output_file) {
-            FILE *fptr;
-
-            fptr = fopen(context->output_file, "w");
-            dup2(fileno(fptr), 1);
+        if(manipulate_fds(context) < 0) {
+            return 0;
         }
 
         execvp(*context->tokens, context->tokens);
@@ -116,3 +129,58 @@ static int launch_command(execution_context_t *context) {
     return 1;
 }
 
+int manipulate_fds(execution_context_t *context) {
+    int fd;
+    mode_t mode;
+
+    mode = 0644;
+    
+    if ((context->flags & IN ) == IN) {
+        fd = open(context->input_file, O_RDONLY);
+        
+        if (fd == -1) {
+            handle_error(errno, context->input_file);
+            return -1;
+        }
+
+        dup2(fd, 0);   
+    }
+
+    if ((context->flags & OUT ) == OUT) {
+        fd = open(context->input_file, (O_WRONLY | O_CREAT | O_TRUNC), mode);
+        
+        if (fd == -1) {
+            handle_error(errno, context->output_file);
+            return -1;
+        }
+
+        dup2(fd, 1);   
+    }
+
+    if ((context->flags & APPEND) == APPEND) {
+        fd = open(context->input_file, (O_WRONLY | O_CREAT | O_APPEND), mode);
+        
+        if (fd == -1) {
+            handle_error(errno, context->append_file);             
+            return -1;
+        }
+
+        dup2(fd, 1);   
+    }
+
+    return 0;
+}
+
+static void handle_error(int err, char *filename) {
+    switch (errno) {
+        case(ENOENT):
+            fprintf(stderr, "shelly: no such file or directory: %s\n", filename);
+            break;
+        case(EACCES):
+            fprintf(stderr, "shelly: permission denied: %s\n", filename);
+            break;
+        case(EISDIR):
+            fprintf(stderr, "shelly: permission denied: %s\n", filename);
+            break;              
+    }
+}
