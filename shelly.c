@@ -147,8 +147,8 @@ int manipulate_fds(execution_context_t *context) {
     }
 
     if ((context->flags & OUT ) == OUT) {
-        fd = open(context->input_file, (O_WRONLY | O_CREAT | O_TRUNC), mode);
-        
+        fd = open(context->output_file, (O_WRONLY | O_CREAT | O_TRUNC), mode);
+
         if (fd == -1) {
             handle_error(errno, context->output_file);
             return -1;
@@ -158,7 +158,7 @@ int manipulate_fds(execution_context_t *context) {
     }
 
     if ((context->flags & APPEND) == APPEND) {
-        fd = open(context->input_file, (O_WRONLY | O_CREAT | O_APPEND), mode);
+        fd = open(context->append_file, (O_WRONLY | O_CREAT | O_APPEND), mode);
         
         if (fd == -1) {
             handle_error(errno, context->append_file);             
