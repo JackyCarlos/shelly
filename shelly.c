@@ -11,6 +11,10 @@ static void print_cli(void);
 static int run_command(execution_context_t *context);
 static int launch_command(execution_context_t *context);
 
+static void free_context_list(execution_context_t *context_list);
+static void free_token_list(token_t *token_list);
+
+
 void shelly_loop(void) {
     char *line;
     token_t *token_list;
@@ -28,10 +32,28 @@ void shelly_loop(void) {
         
         status = run_command(context_list); 
         
-        // free(line);
-        // free(context->tokens);
-        // free(context);
+        free(line);
+        free_token_list(token_list);
+        free_context_list(context_list);
     }
+}
+
+static void free_context_list(execution_context_t *context_list) {
+    execution_context_t *context;
+    for (context = context_list; context->type != CONTEXT_END_TYPE; context++) {
+        free(context->tokens);
+    }
+
+    free(context_list);
+}
+
+static void free_token_list(token_t *token_list) {
+    token_t *token;
+    for (token = token_list; token->type != NULL_TYPE; token++) {
+        free(token->str);
+    }
+    
+    free(token_list);
 }
 
 static void print_cli(void) {
