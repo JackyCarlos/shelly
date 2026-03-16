@@ -3,6 +3,8 @@
 
 #include "shelly.h"
 
+static void initiate_contexts(execution_context_t *contexts);
+
 static void initiate_contexts(execution_context_t *contexts) {
     int i;
 
