@@ -4,6 +4,7 @@
 #include "shelly.h"
 
 static void initiate_contexts(execution_context_t *contexts);
+static void set_flags_iofiles(context_status status, execution_context_t *context, token_t *token_list);
 
 static void initiate_contexts(execution_context_t *contexts) {
     int i;
@@ -62,7 +63,10 @@ execution_context_t *get_context(token_t *token_list) {
                     return NULL;
                 }
 
-                contexts[i++].flags |= INTO_PIPE;
+                contexts[i].flags |= INTO_PIPE;
+
+                // after reading pipe a new command starts 
+                i++;                                        
                 status = STATUS_CONTEXT_PIPE;
                 break;
 
@@ -75,29 +79,17 @@ execution_context_t *get_context(token_t *token_list) {
                 break;
 
             default:
-                if (status == STATUS_CONTEXT_REDIRECT_OUT) {
-                    contexts[i].output_file = token_list->str;
-                    contexts[i].flags |= OUT;
+                set_flags_iofiles(status, &contexts[i], token_list); 
 
-                } else if (status == STATUS_CONTEXT_REDIRECT_IN) {
-                    contexts[i].input_file = token_list->str;
-                    contexts[i].flags |= IN;
-
-                } else if (status == STATUS_CONTEXT_REDIRECT_APPEND) {
-                    contexts[i].append_file = token_list->str;
-                    contexts[i].flags |= APPEND;
-
-                } else {
-                    if (status == STATUS_CONTEXT_PIPE) {
-                        contexts[i].flags |= OUT_OF_PIPE;
-                    }
-
+                if (status != STATUS_CONTEXT_REDIRECT_APPEND && 
+                    status != STATUS_CONTEXT_REDIRECT_IN && 
+                    status != STATUS_CONTEXT_REDIRECT_OUT 
+                ) {
                     tokens_index = contexts[i].tokens_index;
 
                     if (tokens_index == 0) {
                         contexts[i].type = CONTEXT_COMMAND_TYPE;
                         contexts[i + 1].type = CONTEXT_END_TYPE;
-
                         tokens_size = 32;
                         contexts[i].tokens = malloc(sizeof(char *) * tokens_size);
 
@@ -105,9 +97,6 @@ execution_context_t *get_context(token_t *token_list) {
                         tokens_size += 32;
                         contexts[i].tokens = realloc(contexts[i].tokens, tokens_size);
                     } 
-                    
-                    // left to do check for tokens_index - 1 == tokens_size and reallocate if necessary
-
                     contexts[i].tokens[tokens_index++] = token_list->str;
                     contexts[i].tokens[tokens_index] = NULL;
                     contexts[i].tokens_index++;
@@ -124,4 +113,22 @@ execution_context_t *get_context(token_t *token_list) {
     }
 
     return contexts;
+}
+
+static void set_flags_iofiles(context_status status, execution_context_t *context, token_t *token) {
+    if (status == STATUS_CONTEXT_REDIRECT_OUT) {
+        context->output_file = token->str;
+        context->flags |= OUT;
+
+    } else if (status == STATUS_CONTEXT_REDIRECT_IN) {
+        context->input_file = token->str;
+        context->flags |= IN;
+
+    } else if (status == STATUS_CONTEXT_REDIRECT_APPEND) {
+        context->append_file = token->str;
+        context->flags |= APPEND;
+
+    } else if (status == STATUS_CONTEXT_PIPE) {
+        context->flags |= OUT_OF_PIPE;
+    }
 }
