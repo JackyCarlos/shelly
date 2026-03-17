@@ -132,7 +132,6 @@ static int launch_command(execution_context_t *context) {
 int manipulate_fds(execution_context_t *context) {
     int fd;
     mode_t mode;
-
     mode = 0644;
     
     if ((context->flags & IN ) == IN) {
@@ -142,7 +141,6 @@ int manipulate_fds(execution_context_t *context) {
             handle_error(errno, context->input_file);
             return -1;
         }
-
         dup2(fd, 0);   
     }
 
@@ -153,7 +151,6 @@ int manipulate_fds(execution_context_t *context) {
             handle_error(errno, context->output_file);
             return -1;
         }
-
         dup2(fd, 1);   
     }
 
@@ -164,7 +161,6 @@ int manipulate_fds(execution_context_t *context) {
             handle_error(errno, context->append_file);             
             return -1;
         }
-
         dup2(fd, 1);   
     }
 
