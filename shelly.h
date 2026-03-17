@@ -55,9 +55,12 @@ typedef struct {
     int tokens_index;
 
     redirect_flags flags;
+
     char *input_file;
     char *output_file;
     char *append_file;
+
+    int pipe[2];
 } execution_context_t;
 
 
