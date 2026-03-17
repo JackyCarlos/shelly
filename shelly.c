@@ -82,11 +82,6 @@ static void print_cli(void) {
 static int run_command(execution_context_t *context_list) {
     int i;
 
-    // when user just hits enter without cmd 
-    if (context_list->type == CONTEXT_END_TYPE) {
-        return 1;
-    }
-
     while (context_list->type != CONTEXT_END_TYPE) {
         launch_command(context_list);
         context_list++;
@@ -107,6 +102,8 @@ static int launch_command(execution_context_t *context) {
     pid_t pid;
     int i, status;
 
+    pipe_config(context);
+
     pid = fork();
 
     if (pid == 0) {
@@ -121,12 +118,20 @@ static int launch_command(execution_context_t *context) {
     } else if (pid < 0) {
         fprintf(stderr, "fork error\n");
     } else {
-        do {
-            waitpid(pid, &status, WUNTRACED);
-        } while (!WIFEXITED(status) && !WIFSIGNALED(status));     
+        ;
+        // do {
+        //     waitpid(pid, &status, WUNTRACED);
+        // } while (!WIFEXITED(status) && !WIFSIGNALED(status));     
     }
 
-    return 1;
+    return pid;
+}
+
+int pipe_config(execution_context_t *context) {
+    if ((context->flags & INTO_PIPE) == INTO_PIPE && pipe(context->pipe) == -1) {
+            return -1;
+    } 
+    return 0;
 }
 
 int manipulate_fds(execution_context_t *context) {
@@ -162,6 +167,15 @@ int manipulate_fds(execution_context_t *context) {
             return -1;
         }
         dup2(fd, 1);   
+    }
+
+    if ((context->flags & INTO_PIPE) == INTO_PIPE) {
+        close(context->pipe[0]);
+        dup2(context->pipe[1], 0);
+    }
+
+    if ((context->flags & OUT_OF_PIPE) == OUT_OF_PIPE) {
+        close(context->)
     }
 
     return 0;
