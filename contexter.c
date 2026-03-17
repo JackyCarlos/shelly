@@ -64,8 +64,7 @@ execution_context_t *get_context(token_t *token_list) {
                 }
 
                 contexts[i].flags |= INTO_PIPE;
-
-                // after reading pipe a new command starts 
+                // after reading pipe token a new command starts 
                 i++;                                        
                 status = STATUS_CONTEXT_PIPE;
                 break;
