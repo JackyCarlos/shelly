@@ -12,13 +12,14 @@ static void print_cli(void);
 
 static int run_command(execution_context_t *context);
 static int launch_command(execution_context_t *context);
+static int create_pipe(execution_context_t *context, int *pipe_fds);
+static int manipulate_fds(execution_context_t *context, int *pipe_fds, int prev_pipe_read);
 
 static void free_context_list(execution_context_t *context_list);
 static void free_token_list(token_t *token_list);
 
 static void handle_error(int err, char *filename);
 
-int manipulate_fds(execution_context_t *context);
 
 void shelly_loop(void) {
     char *line;
@@ -87,8 +88,6 @@ static int run_command(execution_context_t *context_list) {
         context_list++;
     }
 
-
-
 /*     for (i = 0; i < builtins_size(); ++i) {
         if (strcmp(*context->tokens, builtins[i].name) == 0) {
             return builtins[i].builtin(context->tokens);
@@ -101,13 +100,14 @@ static int run_command(execution_context_t *context_list) {
 static int launch_command(execution_context_t *context) {
     pid_t pid;
     int i, status;
+    int pipe_fds[2];
+    static int prev_read_end = 0;
 
-    pipe_config(context);
-
+    create_pipe(context, pipe_fds);
     pid = fork();
 
     if (pid == 0) {
-        if(manipulate_fds(context) < 0) {
+        if(manipulate_fds(context, pipe_fds, prev_read_end) < 0) {
             return 0;
         }
 
@@ -118,7 +118,15 @@ static int launch_command(execution_context_t *context) {
     } else if (pid < 0) {
         fprintf(stderr, "fork error\n");
     } else {
-        ;
+        if (prev_read_end) {
+            close(prev_read_end);
+        }
+
+        if ((context->flags & INTO_PIPE) == INTO_PIPE) {
+            close(pipe_fds[1]);
+            prev_read_end = pipe_fds[0];
+        }
+        
         // do {
         //     waitpid(pid, &status, WUNTRACED);
         // } while (!WIFEXITED(status) && !WIFSIGNALED(status));     
@@ -127,14 +135,15 @@ static int launch_command(execution_context_t *context) {
     return pid;
 }
 
-int pipe_config(execution_context_t *context) {
-    if ((context->flags & INTO_PIPE) == INTO_PIPE && pipe(context->pipe) == -1) {
-            return -1;
+static int create_pipe(execution_context_t *context, int *pipe_fds) {
+    if ((context->flags & INTO_PIPE) == INTO_PIPE && pipe(pipe_fds) == -1) {
+        return -1;
     } 
+
     return 0;
 }
 
-int manipulate_fds(execution_context_t *context) {
+static int manipulate_fds(execution_context_t *context, int *pipe_fds, int prev_pipe_read) {
     int fd;
     mode_t mode;
     mode = 0644;
@@ -169,13 +178,13 @@ int manipulate_fds(execution_context_t *context) {
         dup2(fd, 1);   
     }
 
-    if ((context->flags & INTO_PIPE) == INTO_PIPE) {
-        close(context->pipe[0]);
-        dup2(context->pipe[1], 0);
+    if ((context->flags & OUT_OF_PIPE) == OUT_OF_PIPE) {
+        dup2(prev_pipe_read, 0);
     }
 
-    if ((context->flags & OUT_OF_PIPE) == OUT_OF_PIPE) {
-        close(context->)
+    if ((context->flags & INTO_PIPE) == INTO_PIPE) {
+        close(pipe_fds[0]);
+        dup2(pipe_fds[1], 1);
     }
 
     return 0;
