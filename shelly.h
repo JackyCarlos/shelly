@@ -59,8 +59,6 @@ typedef struct {
     char *input_file;
     char *output_file;
     char *append_file;
-
-    int pipe[2];
 } execution_context_t;
 
 
