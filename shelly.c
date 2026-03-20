@@ -82,8 +82,8 @@ static void print_cli(void) {
 }
 
 static int run_command(execution_context_t *context_list) {
-    int i;
-    int context_count, pgid, prev_pipe_read; 
+    int i, j;
+    int context_count, pgid, prev_pipe_read, child_status; 
 
     pgid = prev_pipe_read = i = 0;
     context_count = context_counter(context_list);
@@ -94,11 +94,21 @@ static int run_command(execution_context_t *context_list) {
         context_list++;
     }
 
-/*     for (i = 0; i < builtins_size(); ++i) {
+    for (j = 0; j < i; ++j) {
+        do {
+            // waitpid(-pgid, &status, WUNTRACED);
+            waitpid(-pgid, &child_status, 0);
+        } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));      
+    }
+
+    /*  shell builtins
+
+    for (i = 0; i < builtins_size(); ++i) {
         if (strcmp(*context->tokens, builtins[i].name) == 0) {
             return builtins[i].builtin(context->tokens);
         }      
-    } */
+    } 
+    */
 
     return 1;
 }
@@ -145,11 +155,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
         if ((context->flags & INTO_PIPE) == INTO_PIPE) {
             close(pipe_fds[1]);
             *prev_pipe_read = pipe_fds[0];
-        }
-        
-        // do {
-        //     waitpid(pid, &status, WUNTRACED);
-        // } while (!WIFEXITED(status) && !WIFSIGNALED(status));     
+        }    
     }
 
     return pid;
