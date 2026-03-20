@@ -11,13 +11,14 @@
 static void print_cli(void);
 
 static int run_command(execution_context_t *context);
-static int launch_command(execution_context_t *context);
+static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read);
 static int create_pipe(execution_context_t *context, int *pipe_fds);
-static int manipulate_fds(execution_context_t *context, int *pipe_fds, int prev_pipe_read);
+static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
 
 static void free_context_list(execution_context_t *context_list);
 static void free_token_list(token_t *token_list);
 
+static int context_counter(execution_context_t *context_list);
 static void handle_error(int err, char *filename);
 
 
@@ -82,9 +83,14 @@ static void print_cli(void) {
 
 static int run_command(execution_context_t *context_list) {
     int i;
+    int context_count, pgid, prev_pipe_read; 
+
+    pgid = prev_pipe_read = i = 0;
+    context_count = context_counter(context_list);
+    int child_pids[context_count];
 
     while (context_list->type != CONTEXT_END_TYPE) {
-        launch_command(context_list);
+        child_pids[i++] = launch_command(context_list, &pgid, &prev_pipe_read);
         context_list++;
     }
 
@@ -97,18 +103,23 @@ static int run_command(execution_context_t *context_list) {
     return 1;
 }
 
-static int launch_command(execution_context_t *context) {
+static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read) {
     pid_t pid;
     int i, status;
     int pipe_fds[2];
-    static int prev_read_end = 0;
 
     create_pipe(context, pipe_fds);
     pid = fork();
 
     if (pid == 0) {
-        if(manipulate_fds(context, pipe_fds, prev_read_end) < 0) {
-            return 0;
+        if(manipulate_fds(context, pipe_fds, prev_pipe_read) < 0) {
+            exit(0);
+        }
+
+        if (*pgid == 0) {
+            setpgid(0, 0);
+        } else {
+            setpgid(0, *pgid);
         }
 
         execvp(*context->tokens, context->tokens);
@@ -118,13 +129,22 @@ static int launch_command(execution_context_t *context) {
     } else if (pid < 0) {
         fprintf(stderr, "fork error\n");
     } else {
-        if (prev_read_end) {
-            close(prev_read_end);
+
+        // set the pgid variable as parent too in order to prevent race conditions
+        if (*pgid == 0) {
+            *pgid = pid;
+        }
+
+        setpgid(pid, *pgid);
+
+        // close read fds to previous pipe 
+        if (*prev_pipe_read) {
+            close(*prev_pipe_read);
         }
 
         if ((context->flags & INTO_PIPE) == INTO_PIPE) {
             close(pipe_fds[1]);
-            prev_read_end = pipe_fds[0];
+            *prev_pipe_read = pipe_fds[0];
         }
         
         // do {
@@ -143,7 +163,7 @@ static int create_pipe(execution_context_t *context, int *pipe_fds) {
     return 0;
 }
 
-static int manipulate_fds(execution_context_t *context, int *pipe_fds, int prev_pipe_read) {
+static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
     int fd;
     mode_t mode;
     mode = 0644;
@@ -179,7 +199,7 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int prev_
     }
 
     if ((context->flags & OUT_OF_PIPE) == OUT_OF_PIPE) {
-        dup2(prev_pipe_read, 0);
+        dup2(*prev_pipe_read, 0);
     }
 
     if ((context->flags & INTO_PIPE) == INTO_PIPE) {
@@ -202,4 +222,16 @@ static void handle_error(int err, char *filename) {
             fprintf(stderr, "shelly: permission denied: %s\n", filename);
             break;              
     }
+}
+
+static int context_counter(execution_context_t *context_list) {
+    int i;
+    i = 0;
+    
+    while (context_list->type != CONTEXT_END_TYPE) {
+        i++;
+        context_list++;
+    }
+
+    return i;
 }
