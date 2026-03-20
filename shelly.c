@@ -30,7 +30,7 @@ void shelly_loop(void) {
 
     status = 1;
 
-    while (status) {
+    while (1) {
         print_cli();
         
         line = read_line();
@@ -83,7 +83,7 @@ static void print_cli(void) {
 
 static int run_command(execution_context_t *context_list) {
     int i, j;
-    int context_count, pgid, prev_pipe_read, child_status; 
+    int context_count, pgid, prev_pipe_read, child_status, child_pid; 
 
     pgid = prev_pipe_read = i = 0;
     context_count = context_counter(context_list);
@@ -97,8 +97,15 @@ static int run_command(execution_context_t *context_list) {
     for (j = 0; j < i; ++j) {
         do {
             // waitpid(-pgid, &status, WUNTRACED);
-            waitpid(-pgid, &child_status, 0);
-        } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));      
+            child_pid = waitpid(-pgid, &child_status, 0);
+        } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));   
+        
+        for (int l = 0; l < i; ++l) {
+            if (child_pids[l] == child_pid) {
+                child_pids[l] = WEXITSTATUS(child_status);
+                break;
+            }
+        }
     }
 
     /*  shell builtins
@@ -110,7 +117,7 @@ static int run_command(execution_context_t *context_list) {
     } 
     */
 
-    return 1;
+    return child_pids[i - 1];
 }
 
 static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read) {
@@ -123,7 +130,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
 
     if (pid == 0) {
         if(manipulate_fds(context, pipe_fds, prev_pipe_read) < 0) {
-            exit(0);
+            exit(1);
         }
 
         if (*pgid == 0) {
@@ -135,7 +142,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
         execvp(*context->tokens, context->tokens);
 
         fprintf(stderr, "exec error\n");
-        exit(0);
+        exit(1);
     } else if (pid < 0) {
         fprintf(stderr, "fork error\n");
     } else {
