@@ -15,6 +15,18 @@ static void initiate_contexts(execution_context_t *contexts) {
     }
 }
 
+int context_counter(execution_context_t *context_list) {
+    int i;
+    i = 0;
+    
+    while (context_list->type != CONTEXT_END_TYPE) {
+        i++;
+        context_list++;
+    }
+
+    return i;
+}
+
 execution_context_t *get_context(token_t *token_list) {
     execution_context_t *contexts;
     int i;

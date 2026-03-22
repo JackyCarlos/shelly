@@ -69,5 +69,6 @@ char *read_line(void);
 token_t *tokenizer(char *line); 
 
 execution_context_t *get_context(token_t *);
+int context_counter(execution_context_t *context_list);
 
 void shelly_loop(void);
