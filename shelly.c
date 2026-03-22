@@ -14,6 +14,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
 static int create_pipe(execution_context_t *context, int *pipe_fds);
 static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
 static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
+void parent_set_pgid(int pid, int *pgid);
 
 static void print_cli(void);
 static int context_counter(execution_context_t *context_list);
@@ -146,13 +147,9 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
     } else if (pid < 0) {
         fprintf(stderr, "fork error\n");
     } else {
-
         // set the pgid variable as parent too in order to prevent race conditions
-        if (*pgid == 0) {
-            *pgid = pid;
-        }
+        parent_set_pgid(pid, pgid);
 
-        setpgid(pid, *pgid);
         pipe_cleanup_parent(context, pipe_fds, prev_pipe_read);
     }
 
@@ -165,6 +162,14 @@ static int create_pipe(execution_context_t *context, int *pipe_fds) {
     } 
 
     return 0;
+}
+
+void parent_set_pgid(int pid, int *pgid) {
+    if (*pgid == 0) {
+        *pgid = pid;
+    }
+
+    setpgid(pid, *pgid);
 }
 
 static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
