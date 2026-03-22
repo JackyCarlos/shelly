@@ -27,7 +27,7 @@ int is_builtin(char *command) {
         }      
     } 
 
-    return 0;
+    return -1;
 }
 
 int builtin_exit(char **tokens) {
