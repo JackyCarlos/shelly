@@ -13,7 +13,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
 
 static int create_pipe(execution_context_t *context, int *pipe_fds);
 static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
-static void pipe_cleanup(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
+static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
 
 static void print_cli(void);
 static int context_counter(execution_context_t *context_list);
@@ -153,8 +153,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
         }
 
         setpgid(pid, *pgid);
-
-        pipe_cleanup(context, pipe_fds, prev_pipe_read);
+        pipe_cleanup_parent(context, pipe_fds, prev_pipe_read);
     }
 
     return pid;
@@ -168,7 +167,7 @@ static int create_pipe(execution_context_t *context, int *pipe_fds) {
     return 0;
 }
 
-static void pipe_cleanup(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
+static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
     // close read fds to previous pipe 
     if (*prev_pipe_read) {
         close(*prev_pipe_read);
