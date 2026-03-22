@@ -64,6 +64,7 @@ typedef struct {
 
 extern builtin_h builtins[];
 int builtins_size(void);
+int is_builtin(char *command);
 
 char *read_line(void);
 token_t *tokenizer(char *line); 
