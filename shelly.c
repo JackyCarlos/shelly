@@ -135,7 +135,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
             exit(1);
         }
 
-
+        child_set_pgid(pgid);
 
         execvp(*context->tokens, context->tokens);
 
