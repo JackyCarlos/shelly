@@ -95,6 +95,10 @@ static int run_command(execution_context_t *context_list) {
         context_list++;
     }
 
+
+
+    // do the waiting on all spawned processes
+
     for (j = 0; j < child_count; ++j) {
         do {
             // waitpid(-pgid, &status, WUNTRACED);
@@ -109,14 +113,7 @@ static int run_command(execution_context_t *context_list) {
         }
     }
 
-    /*  shell builtins
 
-    for (i = 0; i < builtins_size(); ++i) {
-        if (strcmp(*context->tokens, builtins[i].name) == 0) {
-            return builtins[i].builtin(context->tokens);
-        }      
-    } 
-    */
 
     return child_pids[child_count - 1];
 }

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "shelly.h"
 
@@ -15,6 +16,18 @@ builtin_h builtins[] = {
 
 int builtins_size() {
     return sizeof(builtins) / sizeof(builtin_h);
+}
+
+int is_builtin(char *command) {
+    int i;
+
+    for (i = 0; i < builtins_size(); ++i) {
+        if (strcmp(command, builtins[i].name) == 0) {
+            return i;
+        }      
+    } 
+
+    return 0;
 }
 
 int builtin_exit(char **tokens) {
