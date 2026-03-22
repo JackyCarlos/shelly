@@ -8,7 +8,7 @@
 
 #include "shelly.h"
 
-static int run_command(execution_context_t *context);
+static int executor(execution_context_t *context);
 static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read);
 
 static int create_pipe(execution_context_t *context, int *pipe_fds);
@@ -43,7 +43,7 @@ void shelly_loop(void) {
             continue;
         }
         
-        status = run_command(context_list); 
+        status = executor(context_list); 
         
         free(line);
         free_token_list(token_list);
@@ -82,17 +82,22 @@ static void print_cli(void) {
     free(cwd);
 }
 
-static int run_command(execution_context_t *context_list) {
-    int child_count, j;
-    int context_count, pgid, prev_pipe_read, child_status, child_pid; 
+static int executor(execution_context_t *context_list) {
+    int context_count, child_count, j;
+    int pgid, prev_pipe_read;
+    int child_status, child_pid; 
 
     pgid = prev_pipe_read = child_count = 0;
     context_count = context_counter(context_list);
     int child_pids[context_count];
 
     while (context_list->type != CONTEXT_END_TYPE) {
-        child_pids[child_count++] = launch_command(context_list, &pgid, &prev_pipe_read);
-        context_list++;
+        if (is_builtin(*context_list->tokens) != -1) {
+            ;
+        } else {
+            child_pids[child_count++] = launch_command(context_list, &pgid, &prev_pipe_read);
+            context_list++;
+        }
     }
 
 
@@ -120,7 +125,6 @@ static int run_command(execution_context_t *context_list) {
 
 static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read) {
     pid_t pid;
-    int i;
     int pipe_fds[2];
 
     create_pipe(context, pipe_fds);
