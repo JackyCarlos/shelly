@@ -8,19 +8,19 @@
 
 #include "shelly.h"
 
-static void print_cli(void);
-
 static int run_command(execution_context_t *context);
 static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read);
+
 static int create_pipe(execution_context_t *context, int *pipe_fds);
 static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
+static void pipe_cleanup(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
 
-static void free_context_list(execution_context_t *context_list);
-static void free_token_list(token_t *token_list);
-
+static void print_cli(void);
 static int context_counter(execution_context_t *context_list);
 static void handle_error(int err, char *filename);
 
+static void free_context_list(execution_context_t *context_list);
+static void free_token_list(token_t *token_list);
 
 void shelly_loop(void) {
     char *line;
@@ -82,25 +82,25 @@ static void print_cli(void) {
 }
 
 static int run_command(execution_context_t *context_list) {
-    int i, j;
+    int child_count, j;
     int context_count, pgid, prev_pipe_read, child_status, child_pid; 
 
-    pgid = prev_pipe_read = i = 0;
+    pgid = prev_pipe_read = child_count = 0;
     context_count = context_counter(context_list);
     int child_pids[context_count];
 
     while (context_list->type != CONTEXT_END_TYPE) {
-        child_pids[i++] = launch_command(context_list, &pgid, &prev_pipe_read);
+        child_pids[child_count++] = launch_command(context_list, &pgid, &prev_pipe_read);
         context_list++;
     }
 
-    for (j = 0; j < i; ++j) {
+    for (j = 0; j < child_count; ++j) {
         do {
             // waitpid(-pgid, &status, WUNTRACED);
             child_pid = waitpid(-pgid, &child_status, 0);
         } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));   
         
-        for (int l = 0; l < i; ++l) {
+        for (int l = 0; l < child_count; ++l) {
             if (child_pids[l] == child_pid) {
                 child_pids[l] = WEXITSTATUS(child_status);
                 break;
@@ -117,12 +117,12 @@ static int run_command(execution_context_t *context_list) {
     } 
     */
 
-    return child_pids[i - 1];
+    return child_pids[child_count - 1];
 }
 
 static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read) {
     pid_t pid;
-    int i, status;
+    int i;
     int pipe_fds[2];
 
     create_pipe(context, pipe_fds);
@@ -154,15 +154,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
 
         setpgid(pid, *pgid);
 
-        // close read fds to previous pipe 
-        if (*prev_pipe_read) {
-            close(*prev_pipe_read);
-        }
-
-        if ((context->flags & INTO_PIPE) == INTO_PIPE) {
-            close(pipe_fds[1]);
-            *prev_pipe_read = pipe_fds[0];
-        }    
+        pipe_cleanup(context, pipe_fds, prev_pipe_read);
     }
 
     return pid;
@@ -174,6 +166,18 @@ static int create_pipe(execution_context_t *context, int *pipe_fds) {
     } 
 
     return 0;
+}
+
+static void pipe_cleanup(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
+    // close read fds to previous pipe 
+    if (*prev_pipe_read) {
+        close(*prev_pipe_read);
+    }
+
+    if ((context->flags & INTO_PIPE) == INTO_PIPE) {
+        close(pipe_fds[1]);
+        *prev_pipe_read = pipe_fds[0];
+    } 
 }
 
 static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
