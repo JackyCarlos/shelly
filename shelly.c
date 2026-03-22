@@ -14,7 +14,8 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
 static int create_pipe(execution_context_t *context, int *pipe_fds);
 static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
 static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
-void parent_set_pgid(int pid, int *pgid);
+static void parent_set_pgid(int pid, int *pgid);
+static void child_set_pgid(int *pgid);
 
 static void print_cli(void);
 static int context_counter(execution_context_t *context_list);
@@ -134,11 +135,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
             exit(1);
         }
 
-        if (*pgid == 0) {
-            setpgid(0, 0);
-        } else {
-            setpgid(0, *pgid);
-        }
+
 
         execvp(*context->tokens, context->tokens);
 
@@ -164,7 +161,15 @@ static int create_pipe(execution_context_t *context, int *pipe_fds) {
     return 0;
 }
 
-void parent_set_pgid(int pid, int *pgid) {
+static void child_set_pgid(int *pgid) {
+    if (*pgid == 0) {
+        setpgid(0, 0);
+    } else {
+        setpgid(0, *pgid);
+    }
+}
+
+static void parent_set_pgid(int pid, int *pgid) {
     if (*pgid == 0) {
         *pgid = pid;
     }
