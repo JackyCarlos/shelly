@@ -10,6 +10,7 @@
 
 static int executor(execution_context_t *context);
 static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read);
+static int launch_builtin(execution_context_t *context, int builtin_id, int *prev_pipe_read);
 
 static int create_pipe(execution_context_t *context, int *pipe_fds);
 static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
@@ -86,24 +87,25 @@ static int executor(execution_context_t *context_list) {
     int context_count, child_count, j;
     int pgid, prev_pipe_read;
     int child_status, child_pid; 
+    int builtin_id;
 
     pgid = prev_pipe_read = child_count = 0;
     context_count = context_counter(context_list);
     int child_pids[context_count];
 
     while (context_list->type != CONTEXT_END_TYPE) {
-        if (is_builtin(*context_list->tokens) != -1) {
-            ;
+        builtin_id = is_builtin(*context_list->tokens);
+
+        if (builtin_id != -1) {
+            launch_builtin(context_list, builtin_id, &prev_pipe_read);
         } else {
             child_pids[child_count++] = launch_command(context_list, &pgid, &prev_pipe_read);
-            context_list++;
         }
+
+        context_list++;
     }
 
-
-
     // do the waiting on all spawned processes
-
     for (j = 0; j < child_count; ++j) {
         do {
             // waitpid(-pgid, &status, WUNTRACED);
@@ -121,6 +123,34 @@ static int executor(execution_context_t *context_list) {
 
 
     return child_pids[child_count - 1];
+}
+
+static int launch_builtin(execution_context_t *context, int builtin_id, int *prev_pipe_read) {
+    int pipe_fds[2];
+    int fd_backup[2];
+
+    create_pipe(context, pipe_fds);
+    fd_backup[0] = dup(0);      // backup STDIN
+    fd_backup[1] = dup(1);      // backup STDOUT
+
+    if(manipulate_fds(context, pipe_fds, prev_pipe_read) < 0) {
+        return 1;
+    }
+
+    printf("test1\n");
+
+    if (builtins[builtin_id].builtin(context->tokens) != 0) {
+        return 1;
+    }
+
+    printf("test2\n");
+
+    pipe_cleanup_parent(context, pipe_fds, prev_pipe_read);
+
+    dup2(fd_backup[0], 0);      // restore STDIN
+    dup2(fd_backup[1], 1);      // restore STDOUT
+
+    return 0;
 }
 
 static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read) {
@@ -186,7 +216,7 @@ static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int
     if ((context->flags & INTO_PIPE) == INTO_PIPE) {
         close(pipe_fds[1]);
         *prev_pipe_read = pipe_fds[0];
-    } 
+    }
 }
 
 static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
@@ -229,7 +259,9 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
     }
 
     if ((context->flags & INTO_PIPE) == INTO_PIPE) {
-        close(pipe_fds[0]);
+        if (is_builtin(*context->tokens) == -1) {
+            close(pipe_fds[0]);
+        }
         dup2(pipe_fds[1], 1);
     }
 
