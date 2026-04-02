@@ -6,12 +6,16 @@
 
 #include "shelly.h"
 
+#define MAX_PATH
+
 static int builtin_exit(char **tokens);
 static int builtin_change_directory(char **tokens);
+static int builtin_type(char **tokens);
 
 builtin_h builtins[] = {
     { "exit", builtin_exit },
-    { "cd", builtin_change_directory}
+    { "cd", builtin_change_directory },
+    { "type", builtin_type }
 };
 
 int builtins_size() {
@@ -52,3 +56,24 @@ int builtin_change_directory(char **tokens) {
     return 0;
 }
 
+int builtin_type(char **tokens) {
+    tokens++;
+
+    for (; *tokens != NULL; tokens++) {
+        if (is_builtin(*tokens) != -1) {
+            printf("%s is a shell builtin\n", *tokens);
+
+        } else if (access(*tokens, F_OK) == 0) {
+            char fullPath[256];
+            fullPath[0] = '\0';
+
+            realpath(*tokens, fullPath);    
+            printf("%s is %s\n", *tokens, fullPath);
+
+        } else {
+            printf("%s not found\n", *tokens);
+        }
+    } 
+
+    return 0;
+}
