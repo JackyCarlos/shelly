@@ -48,6 +48,7 @@ int builtin_change_directory(char **tokens) {
                 fprintf(stderr, "cd: permission denied: %s\n", tokens[1]); break;
         }
     } 
-    return 1;
+
+    return 0;
 }
 
