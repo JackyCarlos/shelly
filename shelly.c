@@ -137,13 +137,9 @@ static int launch_builtin(execution_context_t *context, int builtin_id, int *pre
         return 1;
     }
 
-    printf("test1\n");
-
     if (builtins[builtin_id].builtin(context->tokens) != 0) {
         return 1;
     }
-
-    printf("test2\n");
 
     pipe_cleanup_parent(context, pipe_fds, prev_pipe_read);
 
