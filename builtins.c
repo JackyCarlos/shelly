@@ -10,7 +10,9 @@
 
 static int builtin_exit(char **tokens);
 static int builtin_change_directory(char **tokens);
+
 static int builtin_type(char **tokens);
+static int in_path(char *token, char *full_path);
 
 builtin_h builtins[] = {
     { "exit", builtin_exit },
@@ -58,22 +60,41 @@ int builtin_change_directory(char **tokens) {
 
 int builtin_type(char **tokens) {
     tokens++;
+    char full_path[256];
 
     for (; *tokens != NULL; tokens++) {
         if (is_builtin(*tokens) != -1) {
             printf("%s is a shell builtin\n", *tokens);
 
-        } else if (access(*tokens, F_OK) == 0) {
-            char fullPath[256];
-            fullPath[0] = '\0';
-
-            realpath(*tokens, fullPath);    
-            printf("%s is %s\n", *tokens, fullPath);
+        } else if (in_path(*tokens, full_path)) {  
+            printf("%s is %s\n", *tokens, full_path);
 
         } else {
             printf("%s not found\n", *tokens);
         }
     } 
+
+    return 0;
+}
+
+static int in_path(char *token, char *full_path) {
+    char *base_path, *path_var, path_var2[256];
+    
+    path_var = getenv("PATH");
+    strcpy(path_var2, path_var);
+    base_path = strtok(path_var, ":");
+
+    while (base_path != NULL) {
+        strcpy(full_path, base_path);
+        strcat(full_path, "/");
+        strcat(full_path, token);
+
+        if (access(full_path, X_OK) == 0) {
+            return 1;
+        }
+
+        base_path = strtok(NULL, ":");
+    }
 
     return 0;
 }
