@@ -71,6 +71,7 @@ int builtin_type(char **tokens) {
 
         } else {
             printf("%s not found\n", *tokens);
+            return 1;
         }
     } 
 
@@ -82,7 +83,7 @@ static int in_path(char *token, char *full_path) {
     
     path_var = getenv("PATH");
     strcpy(path_var2, path_var);
-    base_path = strtok(path_var, ":");
+    base_path = strtok(path_var2, ":");
 
     while (base_path != NULL) {
         strcpy(full_path, base_path);
