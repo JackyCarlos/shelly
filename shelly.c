@@ -122,12 +122,6 @@ static int executor(execution_context_t *context_list) {
         }
     }
 
-    for (int k = 0; k < return_count; ++k) {
-        printf("return val for command at index %d is %d\n", k, return_values[k]);
-    }
-
-
-
     return return_values[return_count - 1];
 }
 
