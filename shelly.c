@@ -127,11 +127,13 @@ static int executor(execution_context_t *context_list) {
 
 static int launch_builtin(execution_context_t *context, int builtin_id, int *prev_pipe_read) {
     int pipe_fds[2];
-    int fd_backup[2];
+    int stdio_fd_backup[3];
 
     create_pipe(context, pipe_fds);
-    fd_backup[0] = dup(0);      // backup STDIN
-    fd_backup[1] = dup(1);      // backup STDOUT
+    
+    stdio_fd_backup[0] = dup(0);      // backup STDIN
+    stdio_fd_backup[1] = dup(1);      // backup STDOUT
+    stdio_fd_backup[2] = dup(2);      // backup STDERR
 
     if(manipulate_fds(context, pipe_fds, prev_pipe_read) < 0) {
         return 1;
@@ -143,8 +145,9 @@ static int launch_builtin(execution_context_t *context, int builtin_id, int *pre
 
     pipe_cleanup_parent(context, pipe_fds, prev_pipe_read);
 
-    dup2(fd_backup[0], 0);      // restore STDIN
-    dup2(fd_backup[1], 1);      // restore STDOUT
+    dup2(stdio_fd_backup[0], 0);      // restore STDIN
+    dup2(stdio_fd_backup[1], 1);      // restore STDOUT
+    dup2(stdio_fd_backup[2], 2);      // restore STDERR
 
     return 0;
 }
