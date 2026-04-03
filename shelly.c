@@ -84,22 +84,24 @@ static void print_cli(void) {
 }
 
 static int executor(execution_context_t *context_list) {
-    int context_count, child_count, j;
+    int context_count, child_count, return_count, j;
     int pgid, prev_pipe_read;
     int child_status, child_pid; 
     int builtin_id;
 
-    pgid = prev_pipe_read = child_count = 0;
+    pgid = prev_pipe_read = child_count = return_count = 0;
+
     context_count = context_counter(context_list);
-    int child_pids[context_count];
+    int return_values[context_count];
 
     while (context_list->type != CONTEXT_END_TYPE) {
         builtin_id = is_builtin(*context_list->tokens);
 
         if (builtin_id != -1) {
-            launch_builtin(context_list, builtin_id, &prev_pipe_read);
+            return_values[return_count++] = launch_builtin(context_list, builtin_id, &prev_pipe_read);
         } else {
-            child_pids[child_count++] = launch_command(context_list, &pgid, &prev_pipe_read);
+            return_values[return_count++] = launch_command(context_list, &pgid, &prev_pipe_read);
+            child_count++;
         }
 
         context_list++;
@@ -112,42 +114,51 @@ static int executor(execution_context_t *context_list) {
             child_pid = waitpid(-pgid, &child_status, 0);
         } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));   
         
-        for (int l = 0; l < child_count; ++l) {
-            if (child_pids[l] == child_pid) {
-                child_pids[l] = WEXITSTATUS(child_status);
+        for (int l = 0; l < return_count; ++l) {
+            if (return_values[l] == child_pid) {
+                return_values[l] = WEXITSTATUS(child_status);
                 break;
             }
         }
     }
 
+    for (int k = 0; k < return_count; ++k) {
+        printf("return val for command at index %d is %d\n", k, return_values[k]);
+    }
 
 
-    return child_pids[child_count - 1];
+
+    return return_values[return_count - 1];
 }
 
 static int launch_builtin(execution_context_t *context, int builtin_id, int *prev_pipe_read) {
     int pipe_fds[2];
     int stdio_fd_backup[3];
+    int builtin_return;
 
     create_pipe(context, pipe_fds);
-    
-    stdio_fd_backup[0] = dup(0);      // backup STDIN
-    stdio_fd_backup[1] = dup(1);      // backup STDOUT
-    stdio_fd_backup[2] = dup(2);      // backup STDERR
+
+    stdio_fd_backup[0] = dup(0);        // backup STDIN
+    stdio_fd_backup[1] = dup(1);        // backup STDOUT
+    stdio_fd_backup[2] = dup(2);        // backup STDERR
 
     if(manipulate_fds(context, pipe_fds, prev_pipe_read) < 0) {
         return 1;
     }
 
-    if (builtins[builtin_id].builtin(context->tokens) != 0) {
+    builtin_return = builtins[builtin_id].builtin(context->tokens);
+    
+    dup2(stdio_fd_backup[0], 0);        // restore STDIN
+    dup2(stdio_fd_backup[1], 1);        // restore STDOUT
+    dup2(stdio_fd_backup[2], 2);        // restore STDERR
+
+    if (builtin_return != 0) {
+        pipe_cleanup_parent(context, pipe_fds, prev_pipe_read);
+
         return 1;
     }
 
     pipe_cleanup_parent(context, pipe_fds, prev_pipe_read);
-
-    dup2(stdio_fd_backup[0], 0);      // restore STDIN
-    dup2(stdio_fd_backup[1], 1);      // restore STDOUT
-    dup2(stdio_fd_backup[2], 2);      // restore STDERR
 
     return 0;
 }
