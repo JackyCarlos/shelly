@@ -24,12 +24,16 @@ static void handle_error(int err, char *filename);
 static void free_context_list(execution_context_t *context_list);
 static void free_token_list(token_t *token_list);
 
+void ensure_shell_process_group(void);
+static pid_t global_shell_pgid = 0;
+
 void shelly_loop(void) {
     char *line;
     token_t *token_list;
     execution_context_t *context_list;
     int status;
 
+    ensure_shell_process_group();
     status = 1;
 
     while (1) {
@@ -49,6 +53,19 @@ void shelly_loop(void) {
         free(line);
         free_token_list(token_list);
         free_context_list(context_list);
+    }
+}
+
+void ensure_shell_process_group(void) {
+    pid_t pgid;
+
+    pgid = getpgid(0);
+
+    if (pgid == -1) {
+        setpgid(0, 0);
+        global_shell_pgid = getpid();
+    } else {
+        global_shell_pgid = pgid;
     }
 }
 
@@ -102,6 +119,7 @@ static int executor(execution_context_t *context_list) {
         } else {
             return_values[return_count++] = launch_command(context_list, &pgid, &prev_pipe_read);
             child_count++;
+
         }
 
         context_list++;
