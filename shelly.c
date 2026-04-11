@@ -9,14 +9,14 @@
 #include "shelly.h"
 
 static int executor(execution_context_t *context);
-static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read);
+static int launch_command(execution_context_t *context, pid_t *pgid, int *prev_pipe_read);
 static int launch_builtin(execution_context_t *context, int builtin_id, int *prev_pipe_read);
 
 static int create_pipe(execution_context_t *context, int *pipe_fds);
 static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
 static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
-static void parent_set_pgid(int pid, int *pgid);
-static void child_set_pgid(int *pgid);
+static void parent_set_pgid(int pid, pid_t *pgid);
+static void child_set_pgid(pid_t *pgid);
 
 static void print_cli(void);
 static void handle_error(int err, char *filename);
@@ -25,6 +25,9 @@ static void free_context_list(execution_context_t *context_list);
 static void free_token_list(token_t *token_list);
 
 void ensure_shell_process_group(void);
+void SIGINT_Handler(int sig);
+void setup_signal_handlers(void);
+
 static pid_t global_shell_pgid = 0;
 
 void shelly_loop(void) {
@@ -34,6 +37,14 @@ void shelly_loop(void) {
     int status;
 
     ensure_shell_process_group();
+
+    if (tcgetpgrp(0) != global_shell_pgid) {
+        // do some sleeping and check again if shell is the foreground process
+        ;
+    }
+
+    setup_signal_handlers();
+
     status = 1;
 
     while (1) {
@@ -45,6 +56,10 @@ void shelly_loop(void) {
 
         if (context_list == NULL) {
             fprintf(stderr, "syntax error\n");
+
+            free(line);
+            free_token_list(token_list);
+            free_context_list(context_list);
             continue;
         }
         
@@ -54,6 +69,21 @@ void shelly_loop(void) {
         free_token_list(token_list);
         free_context_list(context_list);
     }
+}
+
+void SIGINT_Handler(int sig) {
+    printf("\n");
+
+    return;
+}
+
+void setup_signal_handlers(void) {
+    struct sigaction sa, sa2;
+    sa.sa_handler = SIGINT_Handler;
+    sa2.sa_handler = SIG_IGN;
+
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTTOU, &sa2, NULL);
 }
 
 void ensure_shell_process_group(void) {
@@ -102,11 +132,13 @@ static void print_cli(void) {
 
 static int executor(execution_context_t *context_list) {
     int context_count, child_count, return_count, j;
-    int pgid, prev_pipe_read;
+    int prev_pipe_read;
     int child_status, child_pid; 
     int builtin_id;
+    pid_t job_pgid;
 
-    pgid = prev_pipe_read = child_count = return_count = 0;
+    prev_pipe_read = child_count = return_count = 0;
+    job_pgid = 0;
 
     context_count = context_counter(context_list);
     int return_values[context_count];
@@ -117,19 +149,22 @@ static int executor(execution_context_t *context_list) {
         if (builtin_id != -1) {
             return_values[return_count++] = launch_builtin(context_list, builtin_id, &prev_pipe_read);
         } else {
-            return_values[return_count++] = launch_command(context_list, &pgid, &prev_pipe_read);
+            return_values[return_count++] = launch_command(context_list, &job_pgid, &prev_pipe_read);
             child_count++;
-
         }
 
         context_list++;
+    }
+
+    if (job_pgid) {
+        tcsetpgrp(0, job_pgid);
     }
 
     // do the waiting on all spawned processes
     for (j = 0; j < child_count; ++j) {
         do {
             // waitpid(-pgid, &status, WUNTRACED);
-            child_pid = waitpid(-pgid, &child_status, 0);
+            child_pid = waitpid(-job_pgid, &child_status, 0);
         } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));   
         
         for (int l = 0; l < return_count; ++l) {
@@ -139,6 +174,9 @@ static int executor(execution_context_t *context_list) {
             }
         }
     }
+
+    // set foreground process group back to shell pid
+    tcsetpgrp(0, global_shell_pgid);
 
     return return_values[return_count - 1];
 }
@@ -175,7 +213,7 @@ static int launch_builtin(execution_context_t *context, int builtin_id, int *pre
     return 0;
 }
 
-static int launch_command(execution_context_t *context, int *pgid, int *prev_pipe_read) {
+static int launch_command(execution_context_t *context, pid_t *job_pgid, int *prev_pipe_read) {
     pid_t pid;
     int pipe_fds[2];
 
@@ -187,7 +225,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
             exit(1);
         }
 
-        child_set_pgid(pgid);
+        child_set_pgid(job_pgid);
 
         execvp(*context->tokens, context->tokens);
 
@@ -197,7 +235,7 @@ static int launch_command(execution_context_t *context, int *pgid, int *prev_pip
         fprintf(stderr, "fork error\n");
     } else {
         // set the pgid variable as parent too in order to prevent race conditions
-        parent_set_pgid(pid, pgid);
+        parent_set_pgid(pid, job_pgid);
 
         pipe_cleanup_parent(context, pipe_fds, prev_pipe_read);
     }
@@ -213,7 +251,7 @@ static int create_pipe(execution_context_t *context, int *pipe_fds) {
     return 0;
 }
 
-static void child_set_pgid(int *pgid) {
+static void child_set_pgid(pid_t *pgid) {
     if (*pgid == 0) {
         setpgid(0, 0);
     } else {
@@ -221,7 +259,7 @@ static void child_set_pgid(int *pgid) {
     }
 }
 
-static void parent_set_pgid(int pid, int *pgid) {
+static void parent_set_pgid(int pid, pid_t *pgid) {
     if (*pgid == 0) {
         *pgid = pid;
     }
