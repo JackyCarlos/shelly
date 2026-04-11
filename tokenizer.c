@@ -27,6 +27,11 @@ char *read_line(void) {
         c = getchar();
     }
 
+    if (c == EOF) {
+        printf("\nexit\n");
+        exit(0);
+    }
+
     *line2 = '\0';
 
     return line;
