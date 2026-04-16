@@ -1,7 +1,15 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "shelly.h"
+
+typedef enum {
+    READ_LINE_OK = 0,
+    READ_LINE_EOF,
+    READ_LINE_SIGINT_INTERRUPT,
+    READ_LINE_ERROR
+} readline_return_values;
 
 char *read_line(void) {
     char *line, *line2;
@@ -25,6 +33,8 @@ char *read_line(void) {
 
         *line2++ = c;
         c = getchar();
+
+        
     }
 
     if (c == EOF) {
