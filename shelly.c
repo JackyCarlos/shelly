@@ -142,6 +142,7 @@ static void print_cli(void) {
     printf("%s@%s %s $ ", (user != NULL ? user : ""), hostname, cwd);
 
     free(cwd);
+    fflush(stdout);
 }
 
 static int executor(execution_context_t *context_list) {
