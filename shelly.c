@@ -91,6 +91,9 @@ void SIGINT_Handler(int sig) {
 void setup_signal_handlers(void) {
     struct sigaction sa, sa2;
     sa.sa_handler = SIGINT_Handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
     sa2.sa_handler = SIG_IGN;
 
     sigaction(SIGINT, &sa, NULL);
