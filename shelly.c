@@ -72,8 +72,6 @@ void shelly_loop(void) {
 }
 
 void SIGINT_Handler(int sig) {
-    printf("\n");
-
     return;
 }
 
