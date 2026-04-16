@@ -34,7 +34,7 @@ void shelly_loop(void) {
     char *line;
     token_t *token_list;
     execution_context_t *context_list;
-    int status;
+    int status, err;
 
     ensure_shell_process_group();
 
@@ -50,7 +50,20 @@ void shelly_loop(void) {
     while (1) {
         print_cli();
         
-        line = read_line();
+        line = read_line(&err);    
+        if (line == NULL) {
+            switch (err) {
+                case READ_LINE_EOF:
+                    printf("\nexit\n");
+                    exit(0);
+                case READ_LINE_SIGINT_INTERRUPT:
+                    printf("\n");
+                    continue;
+                default:
+                    continue;
+            }
+        }
+
         token_list = tokenizer(line);
         context_list = get_context(token_list);
 
