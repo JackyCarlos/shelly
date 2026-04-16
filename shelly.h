@@ -42,6 +42,13 @@ typedef enum {
     OUT_OF_PIPE     = 16
 } redirect_flags;
 
+typedef enum {
+    READ_LINE_OK = 0,
+    READ_LINE_EOF,
+    READ_LINE_SIGINT_INTERRUPT,
+    READ_LINE_ERROR
+} readline_return_values;
+
 typedef struct {
     token_type type;
     char *str;
@@ -66,7 +73,7 @@ extern builtin_h builtins[];
 int builtins_size(void);
 int is_builtin(char *command);
 
-char *read_line(void);
+char *read_line(int *err);
 token_t *tokenizer(char *line); 
 
 execution_context_t *get_context(token_t *);

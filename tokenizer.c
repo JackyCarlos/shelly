@@ -5,13 +5,6 @@
 
 #include "shelly.h"
 
-typedef enum {
-    READ_LINE_OK = 0,
-    READ_LINE_EOF,
-    READ_LINE_SIGINT_INTERRUPT,
-    READ_LINE_ERROR
-} readline_return_values;
-
 char *read_line(int *err) {
     char *buffer;
     int buf_size, len;
