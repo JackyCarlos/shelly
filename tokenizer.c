@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <errno.h>
 
 #include "shelly.h"
@@ -11,40 +12,55 @@ typedef enum {
     READ_LINE_ERROR
 } readline_return_values;
 
-char *read_line(void) {
-    char *line, *line2;
-    int buf_size, c;
+char *read_line(int *err) {
+    char *buffer;
+    int buf_size, len;
+    int bytes_read;
 
-    buf_size = 64;
-    line = line2 = (char *) malloc(sizeof(char) * buf_size);
+    buf_size = 8;
+    len = 0;
+    *err = -1;
+    buffer = (char *) malloc(sizeof(char) * buf_size);
 
-    if (line == NULL) {
+    if (buffer == NULL) {
         fprintf(stderr, "memory allocation error. Terminating .. \n");
         exit(0);
     }
 
-    c = getchar();
-    while (c != EOF && c != '\n') {
-        if (line2 - line == buf_size) {
-            buf_size += 64;
-            line = line2 = (char *) realloc(line, buf_size);
-            line2 += (buf_size - 64);
-        }
+    while (1) {
+        bytes_read = read(0, buffer + len, buf_size - len);
 
-        *line2++ = c;
-        c = getchar();
+        if (bytes_read == 0) {
+            free(buffer);
+            *err = READ_LINE_EOF;
 
-        
+            return NULL;
+        } else if (bytes_read == -1) {
+            free(buffer);
+            *err = (errno == EINTR ? READ_LINE_SIGINT_INTERRUPT : READ_LINE_ERROR);
+            
+            return NULL;
+        } else {
+            len += bytes_read;
+
+            if (buffer[len - 1] == '\n') {
+                buffer[len - 1] = '\0';
+                *err = READ_LINE_OK;
+
+                return buffer;
+            }
+
+            if (len == buf_size) {
+                buf_size += 8;
+
+                buffer = realloc(buffer, buf_size);
+
+                // memory error checking left to do
+           }
+        }         
     }
 
-    if (c == EOF) {
-        printf("\nexit\n");
-        exit(0);
-    }
-
-    *line2 = '\0';
-
-    return line;
+    return buffer;
 }
 
 token_t *tokenizer(char *line) {
