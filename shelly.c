@@ -180,7 +180,8 @@ static int executor(execution_context_t *context_list) {
         do {
             // waitpid(-pgid, &status, WUNTRACED);
             child_pid = waitpid(-job_pgid, &child_status, 0);
-        } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));   
+
+        } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));
         
         for (int l = 0; l < return_count; ++l) {
             if (return_values[l] == child_pid) {
@@ -188,6 +189,10 @@ static int executor(execution_context_t *context_list) {
                 break;
             }
         }
+    }
+
+    if (WIFSIGNALED(child_status)) {
+        printf("\n");
     }
 
     // set foreground process group back to shell pid
