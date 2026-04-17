@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "parser.h"
 
@@ -48,7 +49,9 @@ execution_context_t *get_context(token_t *token_list) {
 
     context_array_size = 32;
     contexts = (execution_context_t *) malloc(sizeof(execution_context_t) * context_array_size);    // CONTEXT_ARRAY_SIZE
-    initiate_contexts(contexts);
+    if (contexts == NULL) { goto alloc_err; }
+    
+    initiate_contexts(contexts); 
     
     i = 0;
 
@@ -59,6 +62,8 @@ execution_context_t *get_context(token_t *token_list) {
         if (i == context_array_size - 1) {
             context_array_size += 32;
             contexts = realloc(contexts, sizeof(execution_context_t) * context_array_size);
+            if (contexts == NULL) { goto alloc_err; }
+
             initiate_contexts(contexts + i + 1);
         }
 
@@ -112,11 +117,15 @@ execution_context_t *get_context(token_t *token_list) {
                         contexts[i + 1].type = CTX_END_TYPE;
                         tokens_size = 32;
                         contexts[i].tokens = malloc(sizeof(char *) * tokens_size);
+                        if (contexts[i].tokens == NULL) { goto alloc_err; }
 
                     } else if (tokens_index - 1 == tokens_size) {
                         tokens_size += 32;
                         contexts[i].tokens = realloc(contexts[i].tokens, tokens_size);
-                    } 
+                        if (contexts[i].tokens == NULL) { goto alloc_err; }
+
+                    }
+
                     contexts[i].tokens[tokens_index++] = token_list->str;
                     contexts[i].tokens[tokens_index] = NULL;
                     contexts[i].tokens_index++;
@@ -133,6 +142,10 @@ execution_context_t *get_context(token_t *token_list) {
     }
 
     return contexts;
+
+    alloc_err:
+        fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
+        exit(0);
 }
 
 static void set_flags_iofiles(context_status status, execution_context_t *context, token_t *token) {
