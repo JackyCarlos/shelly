@@ -5,6 +5,8 @@
 
 #include "parser.h"
 
+#define     INPUT_CHUNK_SIZE    64
+
 typedef enum {
     STATUS_TOKENIZER_WORDOUT,
     STATUS_TOKENIZER_WORDIN,
@@ -16,29 +18,24 @@ char *read_line(int *err) {
     int buf_size, len;
     int bytes_read;
 
-    buf_size = 8;
+    buf_size = INPUT_CHUNK_SIZE;
     len = 0;
     *err = -1;
     buffer = (char *) malloc(sizeof(char) * buf_size);
 
-    if (buffer == NULL) {
-        fprintf(stderr, "memory allocation error. Terminating .. \n");
-        exit(0);
-    }
+    if (buffer == NULL) { goto alloc_err; }
 
     while (1) {
         bytes_read = read(0, buffer + len, buf_size - len);
 
         if (bytes_read == 0) {
-            free(buffer);
             *err = READ_LINE_EOF;
 
-            return NULL;
+            goto input_err;
         } else if (bytes_read == -1) {
-            free(buffer);
             *err = (errno == EINTR ? READ_LINE_SIGINT_INTERRUPT : READ_LINE_ERROR);
             
-            return NULL;
+            goto input_err;
         } else {
             len += bytes_read;
 
@@ -50,16 +47,23 @@ char *read_line(int *err) {
             }
 
             if (len == buf_size) {
-                buf_size += 8;
+                buf_size += INPUT_CHUNK_SIZE;
 
                 buffer = realloc(buffer, buf_size);
-
-                // memory error checking left to do
+                if (buffer == NULL) { goto alloc_err; }
            }
         }         
     }
 
     return buffer;
+
+    input_err:        
+        free(buffer);
+        return NULL;
+
+    alloc_err:
+        fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
+        exit(0);
 }
 
 token_t *tokenizer(char *line) {
@@ -71,6 +75,8 @@ token_t *tokenizer(char *line) {
     token_array_size = 32;
     token_list = (token_t *) malloc(sizeof(token_t) * token_array_size);
 
+    if (token_list == NULL) { goto alloc_err; }
+
     i = -1;
     status = STATUS_TOKENIZER_WORDOUT;
 
@@ -80,9 +86,7 @@ token_t *tokenizer(char *line) {
 
             token_list = realloc(token_list, sizeof(token_t) * token_array_size);
 
-            if (token_list == NULL) {
-                goto err;
-            }
+            if (token_list == NULL) { goto alloc_err; }
         }
 
         switch (*line) {
@@ -130,9 +134,7 @@ token_t *tokenizer(char *line) {
                     token_buf_size = 32;
 
                     token_list[i].str = (char *) malloc(token_buf_size);
-                    if (token_list[i].str == NULL) {
-                        goto err;
-                    }
+                    if (token_list[i].str == NULL) { goto alloc_err; }
 
                     token_list[i].type = TOK_WORD_TYPE;
                     token_list[i].index = 0;
@@ -140,11 +142,9 @@ token_t *tokenizer(char *line) {
 
                 if (token_list[i].index >= token_buf_size - 1) {
                     token_buf_size += 32;
-                    token_list[i].str = (char *) realloc(token_list[i].str, token_buf_size);
 
-                    if (token_list[i].str == NULL) {
-                        goto err;
-                    }
+                    token_list[i].str = (char *) realloc(token_list[i].str, token_buf_size);
+                    if (token_list[i].str == NULL) { goto alloc_err; }
                 }
 
                 str_index = token_list[i].index++;
@@ -161,13 +161,7 @@ token_t *tokenizer(char *line) {
     token_list[i + 1].type = TOK_NULL_TYPE;
     return token_list;
 
-    err:
+    alloc_err:
         fprintf(stderr, "memory allocation error\n");
-        
-        for (j = 0; j < i; ++j) {       
-            free(token_list[j].str);
-        }
-
-        free(token_list);
-        return NULL;
+        exit(0);
 }
