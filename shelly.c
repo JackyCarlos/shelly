@@ -66,20 +66,18 @@ void shelly_loop(void) {
         }
 
         token_list = tokenizer(line);
+        free(line);
 
         context_list = get_context(token_list);
-        if (context_list == NULL) {
-            fprintf(stderr, "syntax error\n");
 
-            free(line);
+        if (context_list == NULL) {
             free_token_list(token_list);
-            free_context_list(context_list);
+            fprintf(stderr, "syntax error\n");     
             continue;
         }
         
         status = executor(context_list); 
         
-        free(line);
         free_token_list(token_list);
         free_context_list(context_list);
     }
