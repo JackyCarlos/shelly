@@ -66,8 +66,8 @@ void shelly_loop(void) {
         }
 
         token_list = tokenizer(line);
-        context_list = get_context(token_list);
 
+        context_list = get_context(token_list);
         if (context_list == NULL) {
             fprintf(stderr, "syntax error\n");
 
