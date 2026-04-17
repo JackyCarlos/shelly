@@ -1,15 +1,15 @@
 typedef enum {
-    TOKEN_WORD_TYPE,
-    TOKEN_REDIRECT_OUT_TYPE,
-    TOKEN_REDIRECT_IN_TYPE,
-    TOKEN_REDIRECT_PIPE_TYPE,
-    TOKEN_REDIRECT_APPEND_TYPE,
-    TOKEN_NULL_TYPE
+    TOK_WORD_TYPE,
+    TOK_REDIRECT_OUT_TYPE,
+    TOK_REDIRECT_IN_TYPE,
+    TOK_REDIRECT_PIPE_TYPE,
+    TOK_REDIRECT_APPEND_TYPE,
+    TOK_NULL_TYPE
 } token_type;
 
 typedef enum {
-    CONTEXT_COMMAND_TYPE,
-    CONTEXT_END_TYPE
+    CTX_COMMAND_TYPE,
+    CTX_END_TYPE
 } context_type;
 
 typedef struct {
@@ -19,11 +19,11 @@ typedef struct {
 } token_t;
 
 typedef enum {
-    IN              = 1,
-    OUT             = 2,
-    APPEND          = 4,
-    INTO_PIPE       = 8,
-    OUT_OF_PIPE     = 16
+    REDIR_IN              = 1,
+    REDIR_OUT             = 2,
+    REDIR_APPEND          = 4,
+    REDIR_INTO_PIPE       = 8,
+    REDIR_OUT_OF_PIPE     = 16
 } redirect_flags;
 
 typedef struct {

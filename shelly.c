@@ -7,6 +7,7 @@
 #include <fcntl.h>
 
 #include "shelly.h"
+#include "parser.h"
 
 static int executor(execution_context_t *context);
 static int launch_command(execution_context_t *context, pid_t *pgid, int *prev_pipe_read);
@@ -115,7 +116,7 @@ void ensure_shell_process_group(void) {
 
 static void free_context_list(execution_context_t *context_list) {
     execution_context_t *context;
-    for (context = context_list; context->type != CONTEXT_END_TYPE; context++) {
+    for (context = context_list; context->type != CTX_END_TYPE; context++) {
         free(context->tokens);
     }
 
@@ -124,7 +125,7 @@ static void free_context_list(execution_context_t *context_list) {
 
 static void free_token_list(token_t *token_list) {
     token_t *token;
-    for (token = token_list; token->type != NULL_TYPE; token++) {
+    for (token = token_list; token->type != TOK_NULL_TYPE; token++) {
         free(token->str);
     }
     
@@ -152,13 +153,13 @@ static int executor(execution_context_t *context_list) {
     int builtin_id;
     pid_t job_pgid;
 
-    prev_pipe_read = child_count = return_count = 0;
+    prev_pipe_read = child_count = return_count = child_status = 0;
     job_pgid = 0;
 
     context_count = context_counter(context_list);
     int return_values[context_count];
 
-    while (context_list->type != CONTEXT_END_TYPE) {
+    while (context_list->type != CTX_END_TYPE) {
         builtin_id = is_builtin(*context_list->tokens);
 
         if (builtin_id != -1) {
@@ -264,7 +265,7 @@ static int launch_command(execution_context_t *context, pid_t *job_pgid, int *pr
 }
 
 static int create_pipe(execution_context_t *context, int *pipe_fds) {
-    if ((context->flags & INTO_PIPE) == INTO_PIPE && pipe(pipe_fds) == -1) {
+    if ((context->flags & REDIR_INTO_PIPE) == REDIR_INTO_PIPE && pipe(pipe_fds) == -1) {
         return -1;
     } 
 
@@ -293,7 +294,7 @@ static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int
         close(*prev_pipe_read);
     }
 
-    if ((context->flags & INTO_PIPE) == INTO_PIPE) {
+    if ((context->flags & REDIR_INTO_PIPE) == REDIR_INTO_PIPE) {
         close(pipe_fds[1]);
         *prev_pipe_read = pipe_fds[0];
     }
@@ -304,7 +305,7 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
     mode_t mode;
     mode = 0644;
     
-    if ((context->flags & IN ) == IN) {
+    if ((context->flags & REDIR_IN ) == REDIR_IN) {
         fd = open(context->input_file, O_RDONLY);
         
         if (fd == -1) {
@@ -314,7 +315,7 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
         dup2(fd, 0);   
     }
 
-    if ((context->flags & OUT ) == OUT) {
+    if ((context->flags & REDIR_OUT ) == REDIR_OUT) {
         fd = open(context->output_file, (O_WRONLY | O_CREAT | O_TRUNC), mode);
 
         if (fd == -1) {
@@ -324,7 +325,7 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
         dup2(fd, 1);   
     }
 
-    if ((context->flags & APPEND) == APPEND) {
+    if ((context->flags & REDIR_APPEND) == REDIR_APPEND) {
         fd = open(context->append_file, (O_WRONLY | O_CREAT | O_APPEND), mode);
         
         if (fd == -1) {
@@ -334,11 +335,11 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
         dup2(fd, 1);   
     }
 
-    if ((context->flags & OUT_OF_PIPE) == OUT_OF_PIPE) {
+    if ((context->flags & REDIR_OUT_OF_PIPE) == REDIR_OUT_OF_PIPE) {
         dup2(*prev_pipe_read, 0);
     }
 
-    if ((context->flags & INTO_PIPE) == INTO_PIPE) {
+    if ((context->flags & REDIR_INTO_PIPE) == REDIR_INTO_PIPE) {
         if (is_builtin(*context->tokens) == -1) {
             close(pipe_fds[0]);
         }

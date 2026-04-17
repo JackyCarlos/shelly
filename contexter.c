@@ -1,7 +1,16 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#include "shelly.h"
+#include "parser.h"
+
+typedef enum {
+    STATUS_CONTEXT_INIT,
+    STATUS_CONTEXT_WORD,
+    STATUS_CONTEXT_REDIRECT_IN,
+    STATUS_CONTEXT_REDIRECT_OUT,
+    STATUS_CONTEXT_REDIRECT_APPEND,
+    STATUS_CONTEXT_PIPE
+} context_status;
 
 static void initiate_contexts(execution_context_t *contexts);
 static void set_flags_iofiles(context_status status, execution_context_t *context, token_t *token_list);
@@ -19,7 +28,7 @@ int context_counter(execution_context_t *context_list) {
     int i;
     i = 0;
     
-    while (context_list->type != CONTEXT_END_TYPE) {
+    while (context_list->type != CTX_END_TYPE) {
         i++;
         context_list++;
     }
@@ -43,10 +52,10 @@ execution_context_t *get_context(token_t *token_list) {
     
     i = 0;
 
-    contexts[i].type = CONTEXT_END_TYPE;
+    contexts[i].type = CTX_END_TYPE;
     status = STATUS_CONTEXT_INIT;
 
-    while (token_list->type != NULL_TYPE) {
+    while (token_list->type != TOK_NULL_TYPE) {
         if (i == context_array_size - 1) {
             context_array_size += 32;
             contexts = realloc(contexts, sizeof(execution_context_t) * context_array_size);
@@ -54,7 +63,7 @@ execution_context_t *get_context(token_t *token_list) {
         }
 
         switch (token_list->type) {
-            case REDIRECT_OUT_TYPE:
+            case TOK_REDIRECT_OUT_TYPE:
                 if (status != STATUS_CONTEXT_WORD) {
                     return NULL;
                 }
@@ -62,7 +71,7 @@ execution_context_t *get_context(token_t *token_list) {
                 status = STATUS_CONTEXT_REDIRECT_OUT;
                 break;
 
-            case REDIRECT_IN_TYPE:
+            case TOK_REDIRECT_IN_TYPE:
                 if (status != STATUS_CONTEXT_WORD) {
                     return NULL;
                 }
@@ -70,18 +79,18 @@ execution_context_t *get_context(token_t *token_list) {
                 status = STATUS_CONTEXT_REDIRECT_IN;
                 break;
 
-            case REDIRECT_PIPE_TYPE: 
+            case TOK_REDIRECT_PIPE_TYPE: 
                 if (status != STATUS_CONTEXT_WORD) {
                     return NULL;
                 }
 
-                contexts[i].flags |= INTO_PIPE;
+                contexts[i].flags |= REDIR_INTO_PIPE;
                 // after reading pipe token a new command starts 
                 i++;                                        
                 status = STATUS_CONTEXT_PIPE;
                 break;
 
-            case REDIRECT_APPEND_TYPE: 
+            case TOK_REDIRECT_APPEND_TYPE: 
                 if (status != STATUS_CONTEXT_WORD) {
                     return NULL;
                 }
@@ -99,8 +108,8 @@ execution_context_t *get_context(token_t *token_list) {
                     tokens_index = contexts[i].tokens_index;
 
                     if (tokens_index == 0) {
-                        contexts[i].type = CONTEXT_COMMAND_TYPE;
-                        contexts[i + 1].type = CONTEXT_END_TYPE;
+                        contexts[i].type = CTX_COMMAND_TYPE;
+                        contexts[i + 1].type = CTX_END_TYPE;
                         tokens_size = 32;
                         contexts[i].tokens = malloc(sizeof(char *) * tokens_size);
 
@@ -119,7 +128,7 @@ execution_context_t *get_context(token_t *token_list) {
         token_list++;
     } 
 
-    if (status != STATUS_CONTEXT_WORD && contexts[0].type != CONTEXT_END_TYPE) {
+    if (status != STATUS_CONTEXT_WORD && contexts[0].type != CTX_END_TYPE) {
         return NULL;
     }
 
@@ -129,17 +138,17 @@ execution_context_t *get_context(token_t *token_list) {
 static void set_flags_iofiles(context_status status, execution_context_t *context, token_t *token) {
     if (status == STATUS_CONTEXT_REDIRECT_OUT) {
         context->output_file = token->str;
-        context->flags |= OUT;
+        context->flags |= REDIR_OUT;
 
     } else if (status == STATUS_CONTEXT_REDIRECT_IN) {
         context->input_file = token->str;
-        context->flags |= IN;
+        context->flags |= REDIR_IN;
 
     } else if (status == STATUS_CONTEXT_REDIRECT_APPEND) {
         context->append_file = token->str;
-        context->flags |= APPEND;
+        context->flags |= REDIR_APPEND;
 
     } else if (status == STATUS_CONTEXT_PIPE) {
-        context->flags |= OUT_OF_PIPE;
+        context->flags |= REDIR_OUT_OF_PIPE;
     }
 }

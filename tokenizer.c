@@ -3,7 +3,13 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "shelly.h"
+#include "parser.h"
+
+typedef enum {
+    STATUS_TOKENIZER_WORDOUT,
+    STATUS_TOKENIZER_WORDIN,
+    STATUS_TOKENIZER_REDIRECT_OUT,
+} tokenizer_status;
 
 char *read_line(int *err) {
     char *buffer;
@@ -82,25 +88,25 @@ token_t *tokenizer(char *line) {
         switch (*line) {
             case '<':
                 i++;
-                token_list[i].type = REDIRECT_IN_TYPE;
+                token_list[i].type = TOK_REDIRECT_IN_TYPE;
                 token_list[i].str = NULL;
                 status = STATUS_TOKENIZER_WORDOUT;
                 break;
 
             case '|':
                 i++;
-                token_list[i].type = REDIRECT_PIPE_TYPE;
+                token_list[i].type = TOK_REDIRECT_PIPE_TYPE;
                 token_list[i].str = NULL;
                 status = STATUS_TOKENIZER_WORDOUT;
                 break;
 
             case '>':
                 if (status == STATUS_TOKENIZER_REDIRECT_OUT) {
-                    token_list[i].type = REDIRECT_APPEND_TYPE;
+                    token_list[i].type = TOK_REDIRECT_APPEND_TYPE;
                     status = STATUS_TOKENIZER_WORDOUT;
                 } else {
                     i++;
-                    token_list[i].type = REDIRECT_OUT_TYPE;
+                    token_list[i].type = TOK_REDIRECT_OUT_TYPE;
                     token_list[i].str = NULL;
                     status = STATUS_TOKENIZER_REDIRECT_OUT;
                 } 
@@ -128,7 +134,7 @@ token_t *tokenizer(char *line) {
                         goto err;
                     }
 
-                    token_list[i].type = WORD_TYPE;
+                    token_list[i].type = TOK_WORD_TYPE;
                     token_list[i].index = 0;
                 }
 
@@ -152,7 +158,7 @@ token_t *tokenizer(char *line) {
         line++;
     }
 
-    token_list[i + 1].type = NULL_TYPE;
+    token_list[i + 1].type = TOK_NULL_TYPE;
     return token_list;
 
     err:
