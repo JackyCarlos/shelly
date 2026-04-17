@@ -22,6 +22,7 @@ static void initiate_contexts(execution_context_t *contexts) {
     for (i = 0; i < 32; ++i) {
         contexts[i].tokens_index    = 0;
         contexts[i].flags           = 0;
+        contexts[i].tokens          = NULL;
     }
 }
 
@@ -70,7 +71,7 @@ execution_context_t *get_context(token_t *token_list) {
         switch (token_list->type) {
             case TOK_REDIRECT_OUT_TYPE:
                 if (status != STATUS_CONTEXT_WORD) {
-                    return NULL;
+                    goto syntax_err;
                 }
 
                 status = STATUS_CONTEXT_REDIRECT_OUT;
@@ -78,7 +79,7 @@ execution_context_t *get_context(token_t *token_list) {
 
             case TOK_REDIRECT_IN_TYPE:
                 if (status != STATUS_CONTEXT_WORD) {
-                    return NULL;
+                    goto syntax_err;
                 }
 
                 status = STATUS_CONTEXT_REDIRECT_IN;
@@ -86,7 +87,7 @@ execution_context_t *get_context(token_t *token_list) {
 
             case TOK_REDIRECT_PIPE_TYPE: 
                 if (status != STATUS_CONTEXT_WORD) {
-                    return NULL;
+                    goto syntax_err;
                 }
 
                 contexts[i].flags |= REDIR_INTO_PIPE;
@@ -97,7 +98,7 @@ execution_context_t *get_context(token_t *token_list) {
 
             case TOK_REDIRECT_APPEND_TYPE: 
                 if (status != STATUS_CONTEXT_WORD) {
-                    return NULL;
+                    goto syntax_err;
                 }
 
                 status = STATUS_CONTEXT_REDIRECT_APPEND;
@@ -146,6 +147,18 @@ execution_context_t *get_context(token_t *token_list) {
     alloc_err:
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
         exit(0);
+       
+    syntax_err:
+        execution_context_t *contexts2;
+        contexts2 = contexts;
+
+        while (contexts2->type != CTX_END_TYPE) {
+            free(contexts2->tokens);
+            contexts2++;
+        }
+        free(contexts);
+
+        return NULL;
 }
 
 static void set_flags_iofiles(context_status status, execution_context_t *context, token_t *token) {
