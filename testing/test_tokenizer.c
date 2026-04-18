@@ -1,6 +1,5 @@
 #include <string.h>
 #include "../external/unity/src/unity.h"
-#include "../shelly.h"
 #include "../parser.h"
 
 void setUp(void) {
