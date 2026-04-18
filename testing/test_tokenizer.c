@@ -1,5 +1,5 @@
 #include <string.h>
-#include "../external/Unity/src/unity.h"
+#include "../external/unity/src/unity.h"
 #include "../shelly.h"
 #include "../parser.h"
 
