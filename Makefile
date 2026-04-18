@@ -1,12 +1,12 @@
 CC = gcc
 
 CFLAGS = -I.
-CFLAGS_TEST = -I../external/Unity/src  
+CFLAGS_TEST = -I./external/Unity/src  
 
 OBJS = shelly.c builtins.c tokenizer.c contexter.c main.c 
-OBJS_TEST_TOKENIZER = tokenizer.c builtins.c testing/test_tokenizer.c ../external/Unity/src/unity.c
+OBJS_TEST_TOKENIZER = tokenizer.c builtins.c testing/test_tokenizer.c ./external/Unity/src/unity.c
 OBJS_TEST_CONTEXT_BUILDER = tokenizer.c contexter.c builtins.c testing/test_context_builder.c \
-                                   ../external/Unity/src/unity.c
+                                   ./external/Unity/src/unity.c
 
 default: $(OBJS)
 	$(CC) $(CFLAGS) -o bin/shelly $(OBJS)
