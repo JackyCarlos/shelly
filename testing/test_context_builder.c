@@ -1,6 +1,6 @@
 #include <string.h>
 #include "../external/unity/src/unity.h"
-#include "../parser.h"
+#include "../parser/parser.h"
 
 token_t *tokenizer(char *line);
 execution_context_t *get_context(token_t *token_list);

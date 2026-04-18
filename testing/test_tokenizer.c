@@ -1,6 +1,6 @@
 #include <string.h>
 #include "../external/unity/src/unity.h"
-#include "../parser.h"
+#include "../parser/parser.h"
 
 void setUp(void) {
 

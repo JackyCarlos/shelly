@@ -7,7 +7,7 @@
 #include <fcntl.h>
 
 #include "shelly.h"
-#include "parser.h"
+#include "parser/parser.h"
 #include "builtins/builtins.h"
 
 static int executor(execution_context_t *context);
