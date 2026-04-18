@@ -8,6 +8,7 @@
 
 #include "shelly.h"
 #include "parser.h"
+#include "builtins/builtins.h"
 
 static int executor(execution_context_t *context);
 static int launch_command(execution_context_t *context, pid_t *pgid, int *prev_pipe_read);
