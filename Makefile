@@ -1,18 +1,43 @@
 CC = gcc
 
 CFLAGS = -I.
-CFLAGS_TEST = -I./external/unity/src  
+CFLAGS_TEST = -I. -I./external/unity/src
 
-OBJS = shelly.c builtins/builtins.c builtins/builtins_registry.c tokenizer.c contexter.c main.c 
-OBJS_TEST_TOKENIZER = tokenizer.c testing/test_tokenizer.c ./external/unity/src/unity.c
-OBJS_TEST_CONTEXT_BUILDER = tokenizer.c contexter.c testing/test_context_builder.c \
-                                   ./external/unity/src/unity.c
+SRC_UNITY = ./external/unity/src/unity.c
 
-default: $(OBJS)
-	$(CC) $(CFLAGS) -o bin/shelly $(OBJS)
+SRC_CORE = \
+	main.c \
+	shelly.c
 
-test-tokenizer: $(OBJS_TEST_TOKENIZER)
-	$(CC) $(CFLAGS_TEST) -o bin/test_tokenizer $(OBJS_TEST_TOKENIZER) 
+SRC_BUILTINS = \
+	builtins/builtins.c \
+	builtins/builtins_registry.c
 
-test-contextbuilder: $(OBJS_TEST_CONTEXT_BUILDER)
-	$(CC) $(CFLAGS_TEST) -o bin/test_context_builder $(OBJS_TEST_CONTEXT_BUILDER) 
+SRC_PARSER = \
+	parser/tokenizer.c \
+	parser/contexter.c
+
+SRCS = \
+	$(SRC_CORE) \
+	$(SRC_BUILTINS) \
+	$(SRC_PARSER)
+
+SRCS_TEST_TOKENIZER = \
+	parser/tokenizer.c \
+	testing/test_tokenizer.c \
+	$(SRC_UNITY)
+
+SRCS_TEST_CONTEXT_BUILDER = \
+	parser/tokenizer.c \
+	parser/contexter.c \
+	testing/test_context_builder.c \
+	$(SRC_UNITY)
+
+default: $(SRCS)
+	$(CC) $(CFLAGS) -o bin/shelly $(SRCS)
+
+test-tokenizer: $(SRCS_TEST_TOKENIZER)
+	$(CC) $(CFLAGS_TEST) -o bin/test_tokenizer $(SRCS_TEST_TOKENIZER)
+
+test-contextbuilder: $(SRCS_TEST_CONTEXT_BUILDER)
+	$(CC) $(CFLAGS_TEST) -o bin/test_context_builder $(SRCS_TEST_CONTEXT_BUILDER)
