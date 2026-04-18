@@ -178,3 +178,12 @@ static void set_flags_iofiles(context_status status, execution_context_t *contex
         context->flags |= REDIR_OUT_OF_PIPE;
     }
 }
+
+void free_context_list(execution_context_t *context_list) {
+    execution_context_t *context;
+    for (context = context_list; context->type != CTX_END_TYPE; context++) {
+        free(context->tokens);
+    }
+
+    free(context_list);
+}

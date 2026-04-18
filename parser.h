@@ -51,3 +51,6 @@ token_t *tokenizer(char *line);
 
 execution_context_t *get_context(token_t *);
 int context_counter(execution_context_t *context_list);
+
+void free_context_list(execution_context_t *context_list);
+void free_token_list(token_t *token_list);

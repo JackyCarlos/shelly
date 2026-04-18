@@ -165,3 +165,12 @@ token_t *tokenizer(char *line) {
         fprintf(stderr, "memory allocation error\n");
         exit(0);
 }
+
+void free_token_list(token_t *token_list) {
+    token_t *token;
+    for (token = token_list; token->type != TOK_NULL_TYPE; token++) {
+        free(token->str);
+    }
+    
+    free(token_list);
+}

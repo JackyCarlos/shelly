@@ -22,9 +22,6 @@ static void child_set_pgid(pid_t *pgid);
 static void print_cli(void);
 static void handle_error(int err, char *filename);
 
-static void free_context_list(execution_context_t *context_list);
-static void free_token_list(token_t *token_list);
-
 void ensure_shell_process_group(void);
 void SIGINT_Handler(int sig);
 void setup_signal_handlers(void);
@@ -110,24 +107,6 @@ void ensure_shell_process_group(void) {
     } else {
         global_shell_pgid = pgid;
     }
-}
-
-static void free_context_list(execution_context_t *context_list) {
-    execution_context_t *context;
-    for (context = context_list; context->type != CTX_END_TYPE; context++) {
-        free(context->tokens);
-    }
-
-    free(context_list);
-}
-
-static void free_token_list(token_t *token_list) {
-    token_t *token;
-    for (token = token_list; token->type != TOK_NULL_TYPE; token++) {
-        free(token->str);
-    }
-    
-    free(token_list);
 }
 
 static void print_cli(void) {
