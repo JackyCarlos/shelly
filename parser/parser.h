@@ -38,6 +38,7 @@ typedef enum {
     TOK_REDIRECT_IN_TYPE,
     TOK_REDIRECT_PIPE_TYPE,
     TOK_REDIRECT_APPEND_TYPE,
+    TOK_AMPS_TYPE,
     TOK_NULL_TYPE
 } token_type;
 
