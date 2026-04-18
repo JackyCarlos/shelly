@@ -3,9 +3,9 @@ CC = gcc
 CFLAGS = -I.
 CFLAGS_TEST = -I./external/unity/src  
 
-OBJS = shelly.c builtins.c tokenizer.c contexter.c main.c 
-OBJS_TEST_TOKENIZER = tokenizer.c builtins.c testing/test_tokenizer.c ./external/unity/src/unity.c
-OBJS_TEST_CONTEXT_BUILDER = tokenizer.c contexter.c builtins.c testing/test_context_builder.c \
+OBJS = shelly.c builtins/builtins.c builtins/builtins_registry.c tokenizer.c contexter.c main.c 
+OBJS_TEST_TOKENIZER = tokenizer.c testing/test_tokenizer.c ./external/unity/src/unity.c
+OBJS_TEST_CONTEXT_BUILDER = tokenizer.c contexter.c testing/test_context_builder.c \
                                    ./external/unity/src/unity.c
 
 default: $(OBJS)
