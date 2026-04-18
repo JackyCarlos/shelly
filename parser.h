@@ -1,3 +1,37 @@
+/*
+ ** ownership & lifetime rules for parser structures
+ ** 
+ ** read_line():
+ **   - allocates a line of text from terminal input buffer
+ **
+ ** tokenizer(line):
+ **   - allocates a list of tokens
+ **   - word tokens contain heap-allocated strings
+ **   - ownership is transferred to the caller
+ **
+ ** get_context(token_list):
+ **   - builds execution_context_t structures based on token_list
+ **   - DOES NOT copy token strings
+ **   - context structures contain pointers to token->str
+ **   - does NOT take ownership of token_list
+ **
+ ** lifetime constraints:
+ **   - token_list must remain valid as long as context_list is in use
+ **   - context_list contains borrowed references to token strings
+ **
+ ** error handling:
+ **   - in case of memory alloc errors shelly terminates
+ **   - on failure, read_line() frees internally allocated memory
+ **   - on failure, get_context() frees all internally allocated memory
+ **   - token_list remains the caller's responsibility and must be freed by caller
+ **
+ ** caller responsibilities:
+ **   - always free token_list after context_list is no longer needed
+ **   - after calling executor() token_list and context_list must be freed by calling 
+ **     free_context_list() and free_token_list() respectivley
+ **     
+ */
+
 typedef enum {
     TOK_WORD_TYPE,
     TOK_REDIRECT_OUT_TYPE,
