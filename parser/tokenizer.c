@@ -115,6 +115,13 @@ token_t *tokenizer(char *line) {
                     status = STATUS_TOKENIZER_REDIRECT_OUT;
                 } 
                 break;
+            case '&':
+                i++;
+                token_list[i].type = TOK_AMPS_TYPE;
+                token_list[i].str = NULL;
+                status = STATUS_TOKENIZER_WORDOUT;
+
+                break;
 
             case ' ':
                 status = STATUS_TOKENIZER_WORDOUT;
