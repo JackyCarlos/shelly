@@ -68,10 +68,11 @@ typedef struct {
     int tokens_index;
 
     redirect_flags flags;
-
     char *input_file;
     char *output_file;
     char *append_file;
+
+    int bg_job_group;
 } execution_context_t;
 
 typedef enum {
