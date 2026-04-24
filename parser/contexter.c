@@ -10,7 +10,8 @@ typedef enum {
     STATUS_CONTEXT_REDIRECT_IN,
     STATUS_CONTEXT_REDIRECT_OUT,
     STATUS_CONTEXT_REDIRECT_APPEND,
-    STATUS_CONTEXT_PIPE
+    STATUS_CONTEXT_PIPE,
+    STATUS_CONTEXT_AMPS
 } context_status;
 
 static void initiate_contexts(execution_context_t *contexts);
@@ -23,6 +24,7 @@ static void initiate_contexts(execution_context_t *contexts) {
         contexts[i].tokens_index    = 0;
         contexts[i].flags           = 0;
         contexts[i].tokens          = NULL;
+        contexts[i].bg_job_group    = 0;
     }
 }
 
@@ -104,6 +106,17 @@ execution_context_t *get_context(token_t *token_list) {
                 status = STATUS_CONTEXT_REDIRECT_APPEND;
                 break;
 
+            case TOK_AMPS_TYPE:
+                if (status != STATUS_CONTEXT_WORD) {
+                    goto syntax_err;
+                }
+                
+                contexts[i].bg_job_group = 1;
+
+                i++;
+                status = STATUS_CONTEXT_AMPS;
+                break;
+
             default:
                 set_flags_iofiles(status, &contexts[i], token_list); 
 
@@ -138,7 +151,7 @@ execution_context_t *get_context(token_t *token_list) {
         token_list++;
     } 
 
-    if (status != STATUS_CONTEXT_WORD && contexts[0].type != CTX_END_TYPE) {
+    if (status != STATUS_CONTEXT_WORD && contexts[0].type != CTX_END_TYPE && status != STATUS_CONTEXT_AMPS) {
         return NULL;
     }
 
