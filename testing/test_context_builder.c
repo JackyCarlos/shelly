@@ -33,6 +33,10 @@ void test_context_builder_bad_syntax_1(void) {
     token_list = tokenizer(">>");
     context_list = get_context(token_list);
     TEST_ASSERT_TRUE(context_list == NULL);
+
+    token_list = tokenizer("&");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list == NULL);
 }
 
 void test_context_builder_bad_syntax_2(void) {
@@ -56,6 +60,18 @@ void test_context_builder_bad_syntax_2(void) {
     TEST_ASSERT_TRUE(context_list == NULL);
 
     token_list = tokenizer("echo test | grep -v a | grep -vE b | ");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list == NULL);
+
+    token_list = tokenizer("ls & ls & &");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list == NULL);
+
+    token_list = tokenizer("command | command2 | &");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list == NULL);
+
+    token_list = tokenizer("command & |");
     context_list = get_context(token_list);
     TEST_ASSERT_TRUE(context_list == NULL);
 }
@@ -236,6 +252,56 @@ void test_context_builder_command_with_pipe_2(void) {
 
     TEST_ASSERT_FALSE(pipe_input_flag == REDIR_INTO_PIPE);
     TEST_ASSERT_TRUE(pipe_output_flag == REDIR_OUT_OF_PIPE);
+}
+
+void test_context_builder_command_with_ampersand(void) {
+    token_t *token_list;
+    execution_context_t *context_list;
+    int pipe_output_flag, pipe_input_flag;
+
+    token_list = tokenizer("command &");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list != NULL);
+    TEST_ASSERT_TRUE(context_list[0].type == CTX_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[1].type == CTX_END_TYPE);
+
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "command") == 0);
+    TEST_ASSERT_TRUE(context_list[0].tokens[1] == NULL);
+    TEST_ASSERT_TRUE(context_list[0].bg_job_group == 1);
+
+
+    token_list = tokenizer("ls & ls & ls");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list != NULL);
+    TEST_ASSERT_TRUE(context_list[0].type == CTX_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[1].type == CTX_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[2].type == CTX_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[3].type == CTX_END_TYPE);
+
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "ls") == 0);
+    TEST_ASSERT_TRUE(context_list[0].tokens[1] == NULL);
+    TEST_ASSERT_TRUE(strcmp(context_list[1].tokens[0], "ls") == 0);
+    TEST_ASSERT_TRUE(context_list[1].tokens[1] == NULL);
+    TEST_ASSERT_TRUE(strcmp(context_list[2].tokens[0], "ls") == 0);
+    TEST_ASSERT_TRUE(context_list[2].tokens[1] == NULL);
+    TEST_ASSERT_TRUE(context_list[0].bg_job_group == 1);
+    TEST_ASSERT_TRUE(context_list[1].bg_job_group == 1);
+    TEST_ASSERT_TRUE(context_list[2].bg_job_group == 0);
+
+
+    token_list = tokenizer("command | command2 &");
+    context_list = get_context(token_list);
+    TEST_ASSERT_TRUE(context_list != NULL);
+    TEST_ASSERT_TRUE(context_list[0].type == CTX_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[1].type == CTX_COMMAND_TYPE);
+    TEST_ASSERT_TRUE(context_list[2].type == CTX_END_TYPE);
+
+    TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "command") == 0);
+    TEST_ASSERT_TRUE(context_list[0].tokens[1] == NULL);
+    TEST_ASSERT_TRUE(strcmp(context_list[1].tokens[0], "command2") == 0);
+    TEST_ASSERT_TRUE(context_list[1].tokens[1] == NULL);
+    TEST_ASSERT_TRUE(context_list[0].bg_job_group == 0);
+    TEST_ASSERT_TRUE(context_list[1].bg_job_group == 1);
 }   
 
 int main(void) {
@@ -249,6 +315,7 @@ int main(void) {
     RUN_TEST(test_context_builder_command_with_redirection_2);
     RUN_TEST(test_context_builder_command_with_pipe_1);
     RUN_TEST(test_context_builder_command_with_pipe_2);
+    RUN_TEST(test_context_builder_command_with_ampersand);
 
     return UNITY_END();
 }
