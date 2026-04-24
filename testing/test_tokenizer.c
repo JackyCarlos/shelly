@@ -111,6 +111,30 @@ void test_tokenizer_mixed_tokens2(void) {
     TEST_ASSERT_TRUE(token_list[12].type == TOK_NULL_TYPE);
 }
 
+void test_tokenizer_mixed_tokens3(void) {
+    token_t *token_list;
+ 
+    token_list = tokenizer("xxd<file|grep -v & regex|grep regex2&&>>outfile &");
+    
+    TEST_ASSERT_TRUE(token_list[0].type == TOK_WORD_TYPE);
+    TEST_ASSERT_TRUE(token_list[1].type == TOK_REDIRECT_IN_TYPE);
+    TEST_ASSERT_TRUE(token_list[2].type == TOK_WORD_TYPE);
+    TEST_ASSERT_TRUE(token_list[3].type == TOK_REDIRECT_PIPE_TYPE);
+    TEST_ASSERT_TRUE(token_list[4].type == TOK_WORD_TYPE);
+    TEST_ASSERT_TRUE(token_list[5].type == TOK_WORD_TYPE);
+    TEST_ASSERT_TRUE(token_list[6].type == TOK_AMPS_TYPE);
+    TEST_ASSERT_TRUE(token_list[7].type == TOK_WORD_TYPE);
+    TEST_ASSERT_TRUE(token_list[8].type == TOK_REDIRECT_PIPE_TYPE);
+    TEST_ASSERT_TRUE(token_list[9].type == TOK_WORD_TYPE);
+    TEST_ASSERT_TRUE(token_list[10].type == TOK_WORD_TYPE);
+    TEST_ASSERT_TRUE(token_list[11].type == TOK_AMPS_TYPE);
+    TEST_ASSERT_TRUE(token_list[12].type == TOK_AMPS_TYPE);
+    TEST_ASSERT_TRUE(token_list[13].type == TOK_REDIRECT_APPEND_TYPE);
+    TEST_ASSERT_TRUE(token_list[14].type == TOK_WORD_TYPE);
+    TEST_ASSERT_TRUE(token_list[15].type == TOK_AMPS_TYPE);
+    TEST_ASSERT_TRUE(token_list[16].type == TOK_NULL_TYPE);
+}
+
 void test_tokenizer_token_array_realloc(void) {
     token_t *token_list;
  
@@ -155,6 +179,7 @@ int main(void) {
     RUN_TEST(test_tokenizer_redirect_tokens_only);
     RUN_TEST(test_tokenizer_mixed_tokens1); 
     RUN_TEST(test_tokenizer_mixed_tokens2); 
+    RUN_TEST(test_tokenizer_mixed_tokens3); 
     RUN_TEST(test_tokenizer_token_array_realloc);
     RUN_TEST(test_tokenizer_long_word_tokens);
 
