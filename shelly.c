@@ -154,7 +154,7 @@ static int executor(execution_context_t *context_list) {
         tcsetpgrp(0, job_pgid);
     }
 
-    // do the waiting on all spawned processes
+    // do the waiting on all spawned processes in the foreground process group
     for (j = 0; j < child_count; ++j) {
         do {
             // waitpid(-pgid, &status, WUNTRACED);
