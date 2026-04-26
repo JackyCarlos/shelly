@@ -72,7 +72,8 @@ typedef struct {
     char *output_file;
     char *append_file;
 
-    int bg_job_group;
+    int is_background;
+    int pipeline_end;
 } execution_context_t;
 
 typedef enum {

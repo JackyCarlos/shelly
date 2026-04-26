@@ -102,6 +102,9 @@ void test_context_builder_command_without_redirection(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[3], "ccc") == 0);
     TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[4], "ddd") == 0);
     TEST_ASSERT_TRUE(context_list[0].tokens[5] == NULL);
+
+    TEST_ASSERT_TRUE(context_list[0].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[0].pipeline_end == 1);
 }
 
 void test_context_builder_command_with_redirection_1(void) {
@@ -118,6 +121,9 @@ void test_context_builder_command_with_redirection_1(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "echo") == 0);
     TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[1], "aaa") == 0);
     TEST_ASSERT_TRUE(context_list[0].tokens[2] == NULL);
+
+    TEST_ASSERT_TRUE(context_list[0].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[0].pipeline_end == 1);
 
     out_flag = context_list[0].flags &= REDIR_OUT;
     TEST_ASSERT_TRUE(out_flag == REDIR_OUT);
@@ -143,6 +149,9 @@ void test_context_builder_command_with_redirection_2(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[4], "ddd") == 0);
     TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[5], "eee") == 0);
     TEST_ASSERT_TRUE(context_list[0].tokens[6] == NULL);
+
+    TEST_ASSERT_TRUE(context_list[0].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[0].pipeline_end == 1);
 
     in_flag = (context_list[0].flags & REDIR_IN);
     TEST_ASSERT_TRUE(in_flag == REDIR_IN); 
@@ -174,6 +183,11 @@ void test_context_builder_command_with_pipe_1(void) {
     TEST_ASSERT_TRUE(context_list[0].tokens[1] == NULL);
     TEST_ASSERT_TRUE(context_list[1].tokens[1] == NULL);
 
+    TEST_ASSERT_TRUE(context_list[0].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[0].pipeline_end == 0);
+    TEST_ASSERT_TRUE(context_list[1].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[1].pipeline_end == 1);
+
     pipe_input_flag = context_list[0].flags & REDIR_INTO_PIPE;
     TEST_ASSERT_TRUE(pipe_input_flag == REDIR_INTO_PIPE);
 
@@ -204,6 +218,9 @@ void test_context_builder_command_with_pipe_2(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[1], "aaa") == 0);
     TEST_ASSERT_TRUE(context_list[0].tokens[2] == NULL);
 
+    TEST_ASSERT_TRUE(context_list[0].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[0].pipeline_end == 0);
+
     pipe_input_flag = context_list[0].flags & REDIR_INTO_PIPE;
     pipe_output_flag = context_list[0].flags & REDIR_OUT_OF_PIPE;
     in_flag = (context_list[0].flags & REDIR_IN);
@@ -222,6 +239,9 @@ void test_context_builder_command_with_pipe_2(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[1].tokens[0], "command2") == 0);
     TEST_ASSERT_TRUE(context_list[1].tokens[1] == NULL);
 
+    TEST_ASSERT_TRUE(context_list[1].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[1].pipeline_end == 0);
+
     pipe_input_flag = context_list[1].flags & REDIR_INTO_PIPE;
     pipe_output_flag = context_list[1].flags & REDIR_OUT_OF_PIPE;
 
@@ -235,6 +255,9 @@ void test_context_builder_command_with_pipe_2(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[2].tokens[2], "-B") == 0);
     TEST_ASSERT_TRUE(context_list[2].tokens[3] == NULL);
 
+    TEST_ASSERT_TRUE(context_list[2].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[2].pipeline_end == 0);
+
     pipe_input_flag = context_list[2].flags & REDIR_INTO_PIPE;
     pipe_output_flag = context_list[2].flags & REDIR_OUT_OF_PIPE;
 
@@ -247,6 +270,9 @@ void test_context_builder_command_with_pipe_2(void) {
     TEST_ASSERT_TRUE(strcmp(context_list[3].tokens[1], "bbb") == 0);
     TEST_ASSERT_TRUE(context_list[3].tokens[2] == NULL);
 
+    TEST_ASSERT_TRUE(context_list[3].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[3].pipeline_end == 1);
+
     pipe_input_flag = context_list[3].flags & REDIR_INTO_PIPE;
     pipe_output_flag = context_list[3].flags & REDIR_OUT_OF_PIPE;
 
@@ -254,10 +280,9 @@ void test_context_builder_command_with_pipe_2(void) {
     TEST_ASSERT_TRUE(pipe_output_flag == REDIR_OUT_OF_PIPE);
 }
 
-void test_context_builder_command_with_ampersand(void) {
+void test_context_builder_command_with_ampersand_1(void) {
     token_t *token_list;
     execution_context_t *context_list;
-    int pipe_output_flag, pipe_input_flag;
 
     token_list = tokenizer("command &");
     context_list = get_context(token_list);
@@ -267,8 +292,14 @@ void test_context_builder_command_with_ampersand(void) {
 
     TEST_ASSERT_TRUE(strcmp(context_list[0].tokens[0], "command") == 0);
     TEST_ASSERT_TRUE(context_list[0].tokens[1] == NULL);
-    TEST_ASSERT_TRUE(context_list[0].bg_job_group == 1);
+    
+    TEST_ASSERT_TRUE(context_list[0].is_background == 1);
+    TEST_ASSERT_TRUE(context_list[0].pipeline_end == 1);
+}
 
+void test_context_builder_command_with_ampersand_2(void) {
+    token_t *token_list;
+    execution_context_t *context_list;
 
     token_list = tokenizer("ls & ls & ls");
     context_list = get_context(token_list);
@@ -284,10 +315,18 @@ void test_context_builder_command_with_ampersand(void) {
     TEST_ASSERT_TRUE(context_list[1].tokens[1] == NULL);
     TEST_ASSERT_TRUE(strcmp(context_list[2].tokens[0], "ls") == 0);
     TEST_ASSERT_TRUE(context_list[2].tokens[1] == NULL);
-    TEST_ASSERT_TRUE(context_list[0].bg_job_group == 1);
-    TEST_ASSERT_TRUE(context_list[1].bg_job_group == 1);
-    TEST_ASSERT_TRUE(context_list[2].bg_job_group == 0);
 
+    TEST_ASSERT_TRUE(context_list[0].is_background == 1);
+    TEST_ASSERT_TRUE(context_list[0].pipeline_end == 1);
+    TEST_ASSERT_TRUE(context_list[1].is_background == 1);
+    TEST_ASSERT_TRUE(context_list[1].pipeline_end == 1);
+    TEST_ASSERT_TRUE(context_list[2].is_background == 0);
+    TEST_ASSERT_TRUE(context_list[2].pipeline_end == 1);
+}
+
+void test_context_builder_command_with_ampersand_3(void) {
+    token_t *token_list;
+    execution_context_t *context_list;
 
     token_list = tokenizer("command | command2 &");
     context_list = get_context(token_list);
@@ -300,8 +339,11 @@ void test_context_builder_command_with_ampersand(void) {
     TEST_ASSERT_TRUE(context_list[0].tokens[1] == NULL);
     TEST_ASSERT_TRUE(strcmp(context_list[1].tokens[0], "command2") == 0);
     TEST_ASSERT_TRUE(context_list[1].tokens[1] == NULL);
-    TEST_ASSERT_TRUE(context_list[0].bg_job_group == 0);
-    TEST_ASSERT_TRUE(context_list[1].bg_job_group == 1);
+
+    TEST_ASSERT_TRUE(context_list[0].is_background == 1);
+    TEST_ASSERT_TRUE(context_list[0].pipeline_end == 0);
+    TEST_ASSERT_TRUE(context_list[1].is_background == 1);
+    TEST_ASSERT_TRUE(context_list[1].pipeline_end == 1);
 }   
 
 int main(void) {
@@ -315,7 +357,9 @@ int main(void) {
     RUN_TEST(test_context_builder_command_with_redirection_2);
     RUN_TEST(test_context_builder_command_with_pipe_1);
     RUN_TEST(test_context_builder_command_with_pipe_2);
-    RUN_TEST(test_context_builder_command_with_ampersand);
+    RUN_TEST(test_context_builder_command_with_ampersand_1);
+    RUN_TEST(test_context_builder_command_with_ampersand_2);
+    RUN_TEST(test_context_builder_command_with_ampersand_3);
 
     return UNITY_END();
 }

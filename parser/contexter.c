@@ -16,6 +16,7 @@ typedef enum {
 
 static void initiate_contexts(execution_context_t *contexts);
 static void set_flags_iofiles(context_status status, execution_context_t *context, token_t *token_list);
+static void mark_pipeline_background(int index, execution_context_t *contexts);
 
 static void initiate_contexts(execution_context_t *contexts) {
     int i;
@@ -24,7 +25,8 @@ static void initiate_contexts(execution_context_t *contexts) {
         contexts[i].tokens_index    = 0;
         contexts[i].flags           = 0;
         contexts[i].tokens          = NULL;
-        contexts[i].bg_job_group    = 0;
+        contexts[i].is_background   = 0;
+        contexts[i].pipeline_end    = 0;
     }
 }
 
@@ -111,7 +113,10 @@ execution_context_t *get_context(token_t *token_list) {
                     goto syntax_err;
                 }
                 
-                contexts[i].bg_job_group = 1;
+                contexts[i].is_background = 1;
+                contexts[i].pipeline_end  = 1;
+
+                mark_pipeline_background(i - 1, contexts);
 
                 i++;
                 status = STATUS_CONTEXT_AMPS;
@@ -149,7 +154,9 @@ execution_context_t *get_context(token_t *token_list) {
         }
         
         token_list++;
-    } 
+    }
+
+    contexts[i].pipeline_end  = 1;
 
     if (status != STATUS_CONTEXT_WORD && contexts[0].type != CTX_END_TYPE && status != STATUS_CONTEXT_AMPS) {
         return NULL;
@@ -189,6 +196,13 @@ static void set_flags_iofiles(context_status status, execution_context_t *contex
 
     } else if (status == STATUS_CONTEXT_PIPE) {
         context->flags |= REDIR_OUT_OF_PIPE;
+    }
+}
+
+static void mark_pipeline_background(int index, execution_context_t *contexts) {
+    while (index > -1 && contexts[index].pipeline_end == 0) {
+        contexts[index].is_background = 1;
+        index--;
     }
 }
 
