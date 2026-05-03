@@ -1,8 +1,10 @@
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
+#include <stdio.h>
 
 #include "jobs.h"
-#include "../builtins/builtin.h"
+#include "../builtins/builtins.h"
+#include "../parser/parser.h"
 
 job_t *job_list_acquire_slot(void);
 static void copy_tokens(execution_context_t *context, job_t *job);
@@ -13,10 +15,11 @@ static int job_list_size = 8;
 static int job_list_index = -1;
 
 void init_job_control(void) {
-    int i; 
+    int i;
 
     job_list = malloc(job_list_size * sizeof(job_t));
-    // add error checking
+
+    if (job_list == NULL) { goto alloc_err; }
 
     for (i = 0; i < 8; ++i) {
         job_list[i].id = -1;
@@ -27,6 +30,10 @@ void init_job_control(void) {
 
         if (job_list[i].job_commands == NULL) { goto alloc_err; }
     }
+
+    alloc_err:
+        fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
+        exit(0);    
 }
 
 job_t *job_list_acquire_slot(void) {
@@ -45,12 +52,13 @@ job_t *job_list_acquire_slot(void) {
     job_list = realloc(job_list, job_list_size * sizeof(job_t));
     job_list_index = i;
 
+    // initialize job slots with default values. create separate function for this 
+
     return &job_list[i];
 }
 
 void add_background_job_command(execution_context_t *context) {
     job_t *job; 
-    char *copy;
 
     job = (job_list_index == -1) ? job_list_acquire_slot() : &job_list[job_list_index];
     job->id = job_list_index;
@@ -58,13 +66,13 @@ void add_background_job_command(execution_context_t *context) {
     // do we need more space for more job_command_t's? 
     if (job->job_cmd_counter == job->job_cmds_size) {
         job->job_cmds_size += 8;
-        job->job_commands = realloc(job->job_cmds_size * sizeof(job_command_t));
+        job->job_commands = realloc(job->job_commands, job->job_cmds_size * sizeof(job_command_t));
 
         if (job->job_commands == NULL) { goto alloc_err; }
     }
 
-    copy_tokens(context, jobs);
-    copy_io_files(context, jobs);
+    copy_tokens(context, job);
+    copy_io_files(context, job);
     job->job_cmd_counter++;
 
     if (context->pipeline_end) {
@@ -78,6 +86,8 @@ void add_background_job_command(execution_context_t *context) {
 
 static void copy_tokens(execution_context_t *context, job_t *job) {
     int i;
+        char *copy;
+
     job->job_commands[job->job_cmd_counter].tokens = malloc((context->argc + 1) * sizeof(char *));
     if (job->job_commands[job->job_cmd_counter].tokens == NULL) { goto alloc_err; } 
 
