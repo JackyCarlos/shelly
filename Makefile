@@ -17,10 +17,14 @@ SRC_PARSER = \
 	parser/tokenizer.c \
 	parser/contexter.c
 
+SRC_JOB_CONTROL = \
+	job-control/jobs.c
+
 SRCS = \
 	$(SRC_CORE) \
 	$(SRC_BUILTINS) \
-	$(SRC_PARSER)
+	$(SRC_PARSER) \
+	$(SRC_JOB_CONTROL)
 
 SRCS_TEST_TOKENIZER = \
 	parser/tokenizer.c \
