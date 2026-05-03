@@ -16,14 +16,16 @@ const builtin_t builtins[] = {
 
 const int builtins_size = sizeof(builtins) / sizeof(builtin_t);
 
-int is_builtin(char *command) {
+int is_builtin(char *command, int *builtin_id) {
     int i;
 
     for (i = 0; i < builtins_size; ++i) {
         if (strcmp(command, builtins[i].name) == 0) {
-            return i;
+            if (builtin_id != NULL) *builtin_id = i;
+            
+            return 1;
         }      
     } 
 
-    return -1;
+    return 0;
 }
