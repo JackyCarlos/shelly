@@ -27,4 +27,4 @@ typedef struct job {
 
 
 void init_job_control(void);
-void add_background_job(execution_context_t *context);
+void add_background_job_command(execution_context_t *context);
