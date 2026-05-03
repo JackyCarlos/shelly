@@ -37,7 +37,7 @@ int builtin_type(char **tokens) {
     char full_path[256];
 
     for (; *tokens != NULL; tokens++) {
-        if (is_builtin(*tokens) != -1) {
+        if (is_builtin(*tokens, NULL) != -1) {
             printf("%s is a shell builtin\n", *tokens);
 
         } else if (in_path(*tokens, full_path)) {  
