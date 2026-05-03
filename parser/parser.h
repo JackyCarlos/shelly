@@ -1,3 +1,5 @@
+#include "../common/command_flags.h"
+
 /*
  ** ownership & lifetime rules for parser structures
  ** 
@@ -53,15 +55,7 @@ typedef struct {
     int index;
 } token_t;
 
-typedef enum {
-    REDIR_IN              = 1,
-    REDIR_OUT             = 2,
-    REDIR_APPEND          = 4,
-    REDIR_INTO_PIPE       = 8,
-    REDIR_OUT_OF_PIPE     = 16
-} redirect_flags;
-
-typedef struct {
+typedef struct execution_context {
     context_type type;
 
     char **tokens;
