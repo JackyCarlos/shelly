@@ -10,6 +10,7 @@ static void copy_io_files(execution_context_t *context, job_t *jobs);
 
 static job_t *job_list;
 static int job_list_size = 8;
+static int job_list_index = -1;
 
 void init_job_control(void) {
     int i; 
@@ -33,6 +34,7 @@ job_t *job_list_acquire_slot(void) {
 
     while (i != job_list_size) {
         if (job_list[i].id == -1) {
+            job_list_index = i;
             return &job_list[i];
         }
 
@@ -41,16 +43,16 @@ job_t *job_list_acquire_slot(void) {
 
     job_list_size += 8;
     job_list = realloc(job_list, job_list_size * sizeof(job_t));
+    job_list_index = i;
 
     return &job_list[i];
 }
 
 void add_background_job_command(execution_context_t *context) {
-    int job_list_index;
     job_t *job; 
     char *copy;
 
-    job = job_list_acquire_slot();
+    job = (job_list_index == -1) ? job_list_acquire_slot() : &job_list[job_list_index];
 
     // do we need more space for more job_command_t's? 
     if (job->job_cmd_counter == job->job_cmds_size) {
@@ -65,7 +67,7 @@ void add_background_job_command(execution_context_t *context) {
     job->job_cmd_counter++;
 
     if (context->pipeline_end) {
-        job_list_index++; 
+        job_list_index = -1; 
     }
 
     alloc_err:
