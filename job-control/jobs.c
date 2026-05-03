@@ -4,11 +4,11 @@
 #include "jobs.h"
 #include "../builtins/builtin.h"
 
+job_t *job_list_acquire_slot(void);
 static void copy_tokens(execution_context_t *context, job_t *job);
 static void copy_io_files(execution_context_t *context, job_t *jobs);
 
 static job_t *job_list;
-static int job_list_index = 0;
 static int job_list_size = 8;
 
 void init_job_control(void) {
@@ -28,11 +28,29 @@ void init_job_control(void) {
     }
 }
 
+job_t *job_list_acquire_slot(void) {
+    int i;
+
+    while (i != job_list_size) {
+        if (job_list[i].id == -1) {
+            return &job_list[i];
+        }
+
+        i++;
+    }
+
+    job_list_size += 8;
+    job_list = realloc(job_list, job_list_size * sizeof(job_t));
+
+    return &job_list[i];
+}
+
 void add_background_job_command(execution_context_t *context) {
+    int job_list_index;
     job_t *job; 
     char *copy;
 
-    job = &job_list[job_list_index];
+    job = job_list_acquire_slot();
 
     // do we need more space for more job_command_t's? 
     if (job->job_cmd_counter == job->job_cmds_size) {
