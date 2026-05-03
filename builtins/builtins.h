@@ -5,4 +5,4 @@ typedef struct {
 
 extern const builtin_t builtins[];
 
-int is_builtin(char *command);
+int is_builtin(char *command, int *builtin_id);
