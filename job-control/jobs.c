@@ -31,6 +31,8 @@ void init_job_control(void) {
         if (job_list[i].job_commands == NULL) { goto alloc_err; }
     }
 
+    return;
+
     alloc_err:
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
         exit(0);    
@@ -39,9 +41,12 @@ void init_job_control(void) {
 job_t *job_list_acquire_slot(void) {
     int i;
 
+    i = 0;
+
     while (i != job_list_size) {
         if (job_list[i].id == -1) {
             job_list_index = i;
+
             return &job_list[i];
         }
 
@@ -79,6 +84,8 @@ void add_background_job_command(execution_context_t *context) {
         job_list_index = -1; 
     }
 
+    return;
+
     alloc_err:
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
         exit(0);
@@ -86,7 +93,7 @@ void add_background_job_command(execution_context_t *context) {
 
 static void copy_tokens(execution_context_t *context, job_t *job) {
     int i;
-        char *copy;
+    char *copy;
 
     job->job_commands[job->job_cmd_counter].tokens = malloc((context->argc + 1) * sizeof(char *));
     if (job->job_commands[job->job_cmd_counter].tokens == NULL) { goto alloc_err; } 
@@ -102,6 +109,8 @@ static void copy_tokens(execution_context_t *context, job_t *job) {
     job->job_commands[job->job_cmd_counter].tokens[context->argc] = NULL;
     job->job_commands[job->job_cmd_counter].argc = context->argc;
 
+    return;
+
     alloc_err:
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
         exit(0);
@@ -109,15 +118,28 @@ static void copy_tokens(execution_context_t *context, job_t *job) {
 
 static void copy_io_files(execution_context_t *context, job_t *job) {
     job_command_t *job_cmd;
+    char *temp, *temp2, *temp3;
 
     job_cmd = &job->job_commands[job->job_cmd_counter];
+
+    if ((context->flags & REDIR_IN) == REDIR_IN) {
+        temp = strdup(context->input_file);
+    }
+
+    if ((context->flags & REDIR_OUT) == REDIR_OUT) {
+        temp2 = strdup(context->output_file);
+    }
+
+    if ((context->flags & REDIR_APPEND) == REDIR_APPEND) {
+        temp3 = strdup(context->append_file);
+    }
     
-    job_cmd->input_file  = ((context->flags & REDIR_IN) == REDIR_IN) ? strdup(context->input_file) : NULL;
-    job_cmd->output_file = ((context->flags & REDIR_OUT) == REDIR_OUT) ? strdup(context->output_file) : NULL;
-    job_cmd->append_file = ((context->flags & REDIR_APPEND) == REDIR_APPEND) ? strdup(context->append_file) : NULL;
-    
-    if (job_cmd->input_file == NULL || job_cmd->output_file == NULL || job_cmd->append_file == NULL ) {
+    if (temp == NULL || temp2 == NULL || temp3 == NULL) {
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
         exit(0);
     }
+
+    job_cmd->input_file  = temp;
+    job_cmd->output_file = temp2;
+    job_cmd->append_file = temp3;
 }
