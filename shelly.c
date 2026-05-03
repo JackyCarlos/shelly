@@ -9,6 +9,7 @@
 #include "shelly.h"
 #include "parser/parser.h"
 #include "builtins/builtins.h"
+#include "job-control/jobs.h"
 
 static int executor(execution_context_t *context);
 static int launch_command(execution_context_t *context, pid_t *pgid, int *prev_pipe_read);
@@ -125,10 +126,10 @@ static void print_cli(void) {
 }
 
 static int executor(execution_context_t *context_list) {
-    int context_count, child_count, return_count, j;
+    int context_count, child_count, return_count, return_val, j;
     int prev_pipe_read;
     int child_status, child_pid; 
-    int builtin_id;
+    int cmd_is_builtin, builtin_id;
     pid_t job_pgid;
 
     prev_pipe_read = child_count = return_count = child_status = 0;
@@ -138,13 +139,35 @@ static int executor(execution_context_t *context_list) {
     int return_values[context_count];
 
     while (context_list->type != CTX_END_TYPE) {
-        builtin_id = is_builtin(*context_list->tokens);
+        cmd_is_builtin = is_builtin(*context_list->tokens, &builtin_id);
 
-        if (builtin_id != -1) {
-            return_values[return_count++] = launch_builtin(context_list, builtin_id, &prev_pipe_read);
+        if (context_list->is_background == 1) {
+            add_background_job_command(context_list);
+        }
+
+        if (!cmd_is_builtin) {
+            // in this case return_val holds the pid of the created child process
+            return_val = launch_command(context_list, &job_pgid, &prev_pipe_read);       
         } else {
-            return_values[return_count++] = launch_command(context_list, &job_pgid, &prev_pipe_read);
-            child_count++;
+            return_val = launch_builtin(context_list, builtin_id, &prev_pipe_read);
+        }
+
+        if (context_list->is_background == 0) {
+            return_values[return_count++] = return_val;
+
+            if (!cmd_is_builtin) {
+                child_count++;
+
+                if (context_list->pipeline_end) {
+                    // tcsetpgrp(0, job_pgid);
+                    // job_pgid = 0;
+                    ;
+                }
+            }   
+        } else {
+            if (context_list->pipeline_end) {
+                job_pgid = 0;
+            }
         }
 
         context_list++;
@@ -318,7 +341,7 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
     }
 
     if ((context->flags & REDIR_INTO_PIPE) == REDIR_INTO_PIPE) {
-        if (is_builtin(*context->tokens) == -1) {
+        if (is_builtin(*context->tokens, NULL) == -1) {
             close(pipe_fds[0]);
         }
         dup2(pipe_fds[1], 1);
