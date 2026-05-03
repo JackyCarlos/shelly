@@ -65,7 +65,7 @@ typedef struct {
     context_type type;
 
     char **tokens;
-    int tokens_index;
+    int argc;
 
     redirect_flags flags;
     char *input_file;

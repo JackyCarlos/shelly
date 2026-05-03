@@ -22,7 +22,7 @@ static void initiate_contexts(execution_context_t *contexts) {
     int i;
 
     for (i = 0; i < 32; ++i) {
-        contexts[i].tokens_index    = 0;
+        contexts[i].argc            = 0;
         contexts[i].flags           = 0;
         contexts[i].tokens          = NULL;
         contexts[i].is_background   = 0;
@@ -35,7 +35,7 @@ int context_counter(execution_context_t *context_list) {
     i = 0;
     
     while (context_list->type != CTX_END_TYPE) {
-        i++;
+        if (context_list->is_background == 0) i++;
         context_list++;
     }
 
@@ -129,7 +129,7 @@ execution_context_t *get_context(token_t *token_list) {
                     status != STATUS_CONTEXT_REDIRECT_IN && 
                     status != STATUS_CONTEXT_REDIRECT_OUT 
                 ) {
-                    tokens_index = contexts[i].tokens_index;
+                    tokens_index = contexts[i].argc;
 
                     if (tokens_index == 0) {
                         contexts[i].type = CTX_COMMAND_TYPE;
@@ -147,7 +147,7 @@ execution_context_t *get_context(token_t *token_list) {
 
                     contexts[i].tokens[tokens_index++] = token_list->str;
                     contexts[i].tokens[tokens_index] = NULL;
-                    contexts[i].tokens_index++;
+                    contexts[i].argc++;
                 }
 
                 status = STATUS_CONTEXT_WORD;
