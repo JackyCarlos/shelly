@@ -53,6 +53,7 @@ void add_background_job_command(execution_context_t *context) {
     char *copy;
 
     job = (job_list_index == -1) ? job_list_acquire_slot() : &job_list[job_list_index];
+    job->id = job_list_index;
 
     // do we need more space for more job_command_t's? 
     if (job->job_cmd_counter == job->job_cmds_size) {
