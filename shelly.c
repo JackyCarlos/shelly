@@ -44,6 +44,7 @@ void shelly_loop(void) {
     }
 
     setup_signal_handlers();
+    init_job_control();
 
     status = 1;
 
