@@ -148,7 +148,7 @@ static int executor(execution_context_t *context_list) {
 
         if (!cmd_is_builtin) {
             // in this case return_val holds the pid of the created child process
-            return_val = launch_command(context_list, &job_pgid, &prev_pipe_read);       
+            return_val = launch_command(context_list, &job_pgid, &prev_pipe_read);  
         } else {
             return_val = launch_builtin(context_list, builtin_id, &prev_pipe_read);
         }
@@ -164,7 +164,8 @@ static int executor(execution_context_t *context_list) {
                     // job_pgid = 0;
                     ;
                 }
-            }   
+            } 
+              
         } else {
             if (context_list->pipeline_end) {
                 job_pgid = 0;
@@ -182,10 +183,19 @@ static int executor(execution_context_t *context_list) {
     for (j = 0; j < child_count; ++j) {
         do {
             // waitpid(-pgid, &status, WUNTRACED);
-            child_pid = waitpid(-job_pgid, &child_status, 0);
+            child_pid = waitpid(-job_pgid, &child_status, WUNTRACED);
+
+            if (WIFSTOPPED(child_status)) {
+                printf("testos\n");
+            }
 
         } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));
         
+
+
+
+
+
         for (int l = 0; l < return_count; ++l) {
             if (return_values[l] == child_pid) {
                 return_values[l] = WEXITSTATUS(child_status);
