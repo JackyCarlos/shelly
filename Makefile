@@ -17,24 +17,26 @@ SRC_PARSER = \
 	parser/tokenizer.c \
 	parser/contexter.c
 
-SRC_JOB_CONTROL = \
-	job-control/jobs.c
+SRC_EXECUTOR = \
+	executor/executor.c
 
 SRCS = \
 	$(SRC_CORE) \
 	$(SRC_BUILTINS) \
 	$(SRC_PARSER) \
-	$(SRC_JOB_CONTROL)
+	$(SRC_EXECUTOR)
 
 SRCS_TEST_TOKENIZER = \
 	parser/tokenizer.c \
 	testing/test_tokenizer.c \
+	executor/executor.c \
 	$(SRC_UNITY)
 
 SRCS_TEST_CONTEXT_BUILDER = \
 	parser/tokenizer.c \
 	parser/contexter.c \
 	testing/test_context_builder.c \
+	executor/executor.c \
 	$(SRC_UNITY)
 
 default: $(SRCS)
