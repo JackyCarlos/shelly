@@ -18,10 +18,7 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
 static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int *prev_pipe_read);
 static void parent_set_pgid(int pid, pid_t *pgid);
 static void child_set_pgid(pid_t *pgid);
-
 static void handle_error(int err, char *filename);
-
-
 
 int executor(execution_context_t *context_list) {
     int context_count, child_count, return_count, j;
@@ -36,8 +33,6 @@ int executor(execution_context_t *context_list) {
 
     context_count = context_counter(context_list);
     int return_values[context_count];
-
-
 
     while (context_list->type != CTX_END_TYPE) {
         is_builtin_cmd = is_builtin(*context_list->tokens, &builtin_id);
