@@ -9,26 +9,37 @@
 job_t *job_list_acquire_slot(void);
 static void copy_tokens(execution_context_t *context, job_t *job);
 static void copy_io_files(execution_context_t *context, job_t *jobs);
+static void init_jobs(int start_index);
 
 static job_t *job_list;
 static int job_list_size = 8;
 static int job_list_index = -1;
 
 void init_job_control(void) {
-    int i;
-
     job_list = malloc(job_list_size * sizeof(job_t));
 
     if (job_list == NULL) { goto alloc_err; }
 
+    init_jobs(0);
+
+    alloc_err:
+        fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
+        exit(0);    
+}
+
+static void init_jobs(int start_index) {
+    int i, j;
+
     for (i = 0; i < 8; ++i) {
-        job_list[i].id = -1;
-        job_list[i].job_cmd_counter = 0;
-        job_list[i].job_cmds_size = 8;
+        j = start_index + i;
 
-        job_list[i].job_commands = malloc(job_list[i].job_cmds_size * sizeof(job_command_t));
+        job_list[j].id = -1;
+        job_list[j].job_cmd_counter = 0;
+        job_list[j].job_cmds_size = 8;
 
-        if (job_list[i].job_commands == NULL) { goto alloc_err; }
+        job_list[j].job_commands = malloc(job_list[i].job_cmds_size * sizeof(job_command_t));
+
+        if (job_list[j].job_commands == NULL) { goto alloc_err; }
     }
 
     return;
@@ -57,7 +68,7 @@ job_t *job_list_acquire_slot(void) {
     job_list = realloc(job_list, job_list_size * sizeof(job_t));
     job_list_index = i;
 
-    // initialize job slots with default values. create separate function for this 
+    init_jobs(i);
 
     return &job_list[i];
 }
