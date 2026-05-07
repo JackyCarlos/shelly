@@ -22,6 +22,8 @@ void init_job_control(void) {
 
     init_jobs(0);
 
+    return;
+
     alloc_err:
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
         exit(0);    
@@ -135,22 +137,26 @@ static void copy_io_files(execution_context_t *context, job_t *job) {
 
     if ((context->flags & REDIR_IN) == REDIR_IN) {
         temp = strdup(context->input_file);
+        if (temp == NULL) { goto alloc_err; }
     }
 
     if ((context->flags & REDIR_OUT) == REDIR_OUT) {
         temp2 = strdup(context->output_file);
+        if (temp2 == NULL) { goto alloc_err; }
     }
 
     if ((context->flags & REDIR_APPEND) == REDIR_APPEND) {
         temp3 = strdup(context->append_file);
-    }
-    
-    if (temp == NULL || temp2 == NULL || temp3 == NULL) {
-        fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
-        exit(0);
+        if (temp3 == NULL) { goto alloc_err; }
     }
 
     job_cmd->input_file  = temp;
     job_cmd->output_file = temp2;
     job_cmd->append_file = temp3;
+
+    return;
+
+    alloc_err:
+        fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
+        exit(0);
 }
