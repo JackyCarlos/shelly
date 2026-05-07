@@ -9,6 +9,7 @@
 #include "../shelly.h"
 #include "../parser/parser.h"
 #include "../builtins/builtins.h"
+#include "../job-control/jobs.h"
 
 static int launch_command(execution_context_t *context, pid_t *pgid, int *prev_pipe_read);
 static int launch_builtin(execution_context_t *context, int builtin_id, int *prev_pipe_read);
@@ -27,47 +28,51 @@ int executor(execution_context_t *context_list) {
     int builtin_id, is_builtin_cmd;
     pid_t job_pgid;
 
-
     prev_pipe_read = child_count = return_count = child_status = 0;
     job_pgid = 0;
 
-    context_count = context_counter(context_list);
-    int return_values[context_count];
+    //context_count = context_counter(context_list);
+    //int return_values[context_count];
 
     while (context_list->type != CTX_END_TYPE) {
+        int job_id = add_background_job_command(context_list);
+
         is_builtin_cmd = is_builtin(*context_list->tokens, &builtin_id);
 
         if (!is_builtin_cmd) {
-            return_values[return_count++] = launch_command(context_list, &job_pgid, &prev_pipe_read);
+            int child_pid = launch_command(context_list, &job_pgid, &prev_pipe_read);
             child_count++;
+
+            job_list[job_id].pgid = pgid;
+            int job_cmd_index = job_list[job_id].job_cmd_counter - 1;
+            job_list[job_id].job_commands[job_cmd_index].pid = child_pid;   
         } else {
-            return_values[return_count++] = launch_builtin(context_list, builtin_id, &prev_pipe_read);
+            int dummy = launch_builtin(context_list, builtin_id, &prev_pipe_read);
         }
 
+        if (context_list->pipeline_end) {
+            job_list[job_id].is_background = context_list->is_background;
+            pgid = 0;
+        }
+    
         context_list++;
     }
 
-    if (job_pgid) {
-        tcsetpgrp(0, job_pgid);
+    if (!job_list[job_id].is_background) {
+        tcsetpgrp(0, job_list[job_id].pgid);
     }
 
-    // do the waiting on all spawned processes
-    for (j = 0; j < child_count; ++j) {
-        do {
-            // waitpid(-pgid, &status, WUNTRACED);
-            child_pid = waitpid(-job_pgid, &child_status, 0);
+    while (!job_list[job_id].is_background && !job_complete(job_id)) {
+        child_pid = waitpid(-job_list[job_id].job_pgid, &child_status, WUNTRACED);
 
-        } while (!WIFEXITED(child_status) && !WIFSIGNALED(child_status));
-        
-        for (int l = 0; l < return_count; ++l) {
-            if (return_values[l] == child_pid) {
-                return_values[l] = WEXITSTATUS(child_status);
-                break;
+        for (int j = 0; j < job_list[job_id].job_cmd_counter; ++j) {
+            if (job_list[job_id].job_commands[j].pid == child_pid) {
+                job_list[job_id].job_commands[j].return_value = WEXITSTATUS(child_status);
             }
         }
     }
 
-    if (WIFSIGNALED(child_status)) {
+    if (!job_list[job_id].is_background && WIFSIGNALED(child_status)) {
         printf("\n");
     }
 
