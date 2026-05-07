@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#include "../shelly.h"
 #include "../parser/parser.h"
 #include "../builtins/builtins.h"
 
@@ -18,12 +19,17 @@ static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int
 static void parent_set_pgid(int pid, pid_t *pgid);
 static void child_set_pgid(pid_t *pgid);
 
-static int executor(execution_context_t *context_list) {
+static void handle_error(int err, char *filename);
+
+
+
+int executor(execution_context_t *context_list) {
     int context_count, child_count, return_count, j;
     int prev_pipe_read;
     int child_status, child_pid; 
-    int builtin_id;
+    int builtin_id, is_builtin_cmd;
     pid_t job_pgid;
+
 
     prev_pipe_read = child_count = return_count = child_status = 0;
     job_pgid = 0;
@@ -31,14 +37,16 @@ static int executor(execution_context_t *context_list) {
     context_count = context_counter(context_list);
     int return_values[context_count];
 
-    while (context_list->type != CTX_END_TYPE) {
-        builtin_id = is_builtin(*context_list->tokens);
 
-        if (builtin_id != -1) {
-            return_values[return_count++] = launch_builtin(context_list, builtin_id, &prev_pipe_read);
-        } else {
+
+    while (context_list->type != CTX_END_TYPE) {
+        is_builtin_cmd = is_builtin(*context_list->tokens, &builtin_id);
+
+        if (!is_builtin_cmd) {
             return_values[return_count++] = launch_command(context_list, &job_pgid, &prev_pipe_read);
             child_count++;
+        } else {
+            return_values[return_count++] = launch_builtin(context_list, builtin_id, &prev_pipe_read);
         }
 
         context_list++;
@@ -212,7 +220,7 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
     }
 
     if ((context->flags & REDIR_INTO_PIPE) == REDIR_INTO_PIPE) {
-        if (is_builtin(*context->tokens) == -1) {
+        if (is_builtin(*context->tokens, NULL) == -1) {
             close(pipe_fds[0]);
         }
         dup2(pipe_fds[1], 1);

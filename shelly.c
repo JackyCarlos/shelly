@@ -10,18 +10,15 @@
 #include "parser/parser.h"
 #include "builtins/builtins.h"
 #include "job-control/jobs.h"
-
-
-
+#include "executor/executor.h"
 
 static void print_cli(void);
-static void handle_error(int err, char *filename);
 
 void ensure_shell_process_group(void);
 void SIGINT_Handler(int sig);
 void setup_signal_handlers(void);
 
-static pid_t global_shell_pgid = 0;
+pid_t global_shell_pgid = 0;
 
 void shelly_loop(void) {
     char *line;
