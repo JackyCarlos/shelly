@@ -20,11 +20,15 @@ SRC_PARSER = \
 SRC_EXECUTOR = \
 	executor/executor.c
 
+SRC_JOB_CTRL = \
+	job-control/jobs.c
+
 SRCS = \
 	$(SRC_CORE) \
 	$(SRC_BUILTINS) \
 	$(SRC_PARSER) \
-	$(SRC_EXECUTOR)
+	$(SRC_EXECUTOR) \
+	$(SRC_JOB_CTRL)
 
 SRCS_TEST_TOKENIZER = \
 	parser/tokenizer.c \
