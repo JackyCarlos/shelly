@@ -6,12 +6,12 @@
 #include "../builtins/builtins.h"
 #include "../parser/parser.h"
 
-job_t *job_list_acquire_slot(void);
+static job_t *job_list_acquire_slot(void);
 static void copy_tokens(execution_context_t *context, job_t *job);
 static void copy_io_files(execution_context_t *context, job_t *jobs);
 static void init_jobs(int start_index);
 
-static job_t *job_list;
+job_t *job_list;
 static int job_list_size = 8;
 static int job_list_index = -1;
 
@@ -51,7 +51,7 @@ static void init_jobs(int start_index) {
         exit(0);    
 }
 
-job_t *job_list_acquire_slot(void) {
+static job_t *job_list_acquire_slot(void) {
     int i;
 
     i = 0;
@@ -75,7 +75,7 @@ job_t *job_list_acquire_slot(void) {
     return &job_list[i];
 }
 
-void add_background_job_command(execution_context_t *context) {
+int add_background_job_command(execution_context_t *context) {
     job_t *job; 
 
     job = (job_list_index == -1) ? job_list_acquire_slot() : &job_list[job_list_index];
@@ -97,7 +97,7 @@ void add_background_job_command(execution_context_t *context) {
         job_list_index = -1; 
     }
 
-    return;
+    return job->id;
 
     alloc_err:
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
@@ -159,4 +159,16 @@ static void copy_io_files(execution_context_t *context, job_t *job) {
     alloc_err:
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
         exit(0);
+}
+
+int job_complete(int job_id) {
+    int i;
+
+    for (i = 0; i < job_list[job_id].job_cmd_counter; ++i) {
+        if (job_list[job_id].job_commands[i].return_value == -1) {
+            return 0;
+        } 
+    }
+
+    return 1;
 }
