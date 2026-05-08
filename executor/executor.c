@@ -22,28 +22,26 @@ static void child_set_pgid(pid_t *pgid);
 static void handle_error(int err, char *filename);
 
 int executor(execution_context_t *context_list) {
-    int context_count, child_count, return_count, j;
     int prev_pipe_read;
-    int child_status, child_pid; 
+    int child_status; 
     int builtin_id, is_builtin_cmd;
     pid_t job_pgid;
+    int job_id, child_pid;
 
-    prev_pipe_read = child_count = return_count = child_status = 0;
+    prev_pipe_read = child_status = 0;
     job_pgid = 0;
 
-    //context_count = context_counter(context_list);
-    //int return_values[context_count];
+    if (context_list->type == CTX_END_TYPE) { return 233; }
 
     while (context_list->type != CTX_END_TYPE) {
-        int job_id = add_background_job_command(context_list);
+        job_id = add_background_job_command(context_list);
 
         is_builtin_cmd = is_builtin(*context_list->tokens, &builtin_id);
 
         if (!is_builtin_cmd) {
-            int child_pid = launch_command(context_list, &job_pgid, &prev_pipe_read);
-            child_count++;
+            child_pid = launch_command(context_list, &job_pgid, &prev_pipe_read);
 
-            job_list[job_id].pgid = pgid;
+            job_list[job_id].pgid = job_pgid;
             int job_cmd_index = job_list[job_id].job_cmd_counter - 1;
             job_list[job_id].job_commands[job_cmd_index].pid = child_pid;   
         } else {
@@ -52,7 +50,7 @@ int executor(execution_context_t *context_list) {
 
         if (context_list->pipeline_end) {
             job_list[job_id].is_background = context_list->is_background;
-            pgid = 0;
+            job_pgid = 0;
         }
     
         context_list++;
@@ -63,7 +61,7 @@ int executor(execution_context_t *context_list) {
     }
 
     while (!job_list[job_id].is_background && !job_complete(job_id)) {
-        child_pid = waitpid(-job_list[job_id].job_pgid, &child_status, WUNTRACED);
+        child_pid = waitpid(-job_list[job_id].pgid, &child_status, WUNTRACED);
 
         for (int j = 0; j < job_list[job_id].job_cmd_counter; ++j) {
             if (job_list[job_id].job_commands[j].pid == child_pid) {
@@ -79,7 +77,7 @@ int executor(execution_context_t *context_list) {
     // set foreground process group back to shell pid
     tcsetpgrp(0, global_shell_pgid);
 
-    return return_values[return_count - 1];
+    return 1;
 }
 
 static int launch_builtin(execution_context_t *context, int builtin_id, int *prev_pipe_read) {
