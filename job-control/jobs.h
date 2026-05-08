@@ -29,3 +29,4 @@ extern job_t *job_list;
 
 void init_job_control(void);
 int add_background_job_command(execution_context_t *context);
+int job_complete(int job_id);
