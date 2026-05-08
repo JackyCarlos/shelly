@@ -7,8 +7,8 @@
 #include "../parser/parser.h"
 
 static job_t *job_list_acquire_slot(void);
-static void copy_tokens(execution_context_t *context, job_t *job);
-static void copy_io_files(execution_context_t *context, job_t *jobs);
+static void copy_tokens(execution_context_t *context, job_command_t *job);
+static void copy_io_files(execution_context_t *context, job_command_t *jobs);
 static void init_jobs(int start_index);
 
 job_t *job_list;
@@ -77,6 +77,7 @@ static job_t *job_list_acquire_slot(void) {
 
 int add_background_job_command(execution_context_t *context) {
     job_t *job; 
+    job_command_t *job_command;
 
     job = (job_list_index == -1) ? job_list_acquire_slot() : &job_list[job_list_index];
     job->id = job_list_index;
@@ -89,9 +90,13 @@ int add_background_job_command(execution_context_t *context) {
         if (job->job_commands == NULL) { goto alloc_err; }
     }
 
-    copy_tokens(context, job);
-    copy_io_files(context, job);
+    job_command = &job->job_commands[job->job_cmd_counter];
     job->job_cmd_counter++;
+    
+    copy_tokens(context, job_command);
+    copy_io_files(context, job_command);
+    job_command->return_value = -1;
+    
 
     if (context->pipeline_end) {
         job_list_index = -1; 
@@ -104,23 +109,23 @@ int add_background_job_command(execution_context_t *context) {
         exit(0);
 }
 
-static void copy_tokens(execution_context_t *context, job_t *job) {
+static void copy_tokens(execution_context_t *context, job_command_t *job_command) {
     int i;
     char *copy;
 
-    job->job_commands[job->job_cmd_counter].tokens = malloc((context->argc + 1) * sizeof(char *));
-    if (job->job_commands[job->job_cmd_counter].tokens == NULL) { goto alloc_err; } 
+    job_command->tokens = malloc((context->argc + 1) * sizeof(char *));
+    if (job_command->tokens == NULL) { goto alloc_err; } 
 
     for (i = 0; i < context->argc; ++i) {
         copy = strdup(context->tokens[i]);
 
         if (copy == NULL) { goto alloc_err; } 
 
-        job->job_commands[job->job_cmd_counter].tokens[i] = copy;
+        job_command->tokens[i] = copy;
     }
 
-    job->job_commands[job->job_cmd_counter].tokens[context->argc] = NULL;
-    job->job_commands[job->job_cmd_counter].argc = context->argc;
+    job_command->tokens[context->argc] = NULL;
+    job_command->argc = context->argc;
 
     return;
 
@@ -129,11 +134,8 @@ static void copy_tokens(execution_context_t *context, job_t *job) {
         exit(0);
 }
 
-static void copy_io_files(execution_context_t *context, job_t *job) {
-    job_command_t *job_cmd;
+static void copy_io_files(execution_context_t *context, job_command_t *job_command) {
     char *temp, *temp2, *temp3;
-
-    job_cmd = &job->job_commands[job->job_cmd_counter];
 
     if ((context->flags & REDIR_IN) == REDIR_IN) {
         temp = strdup(context->input_file);
@@ -150,9 +152,9 @@ static void copy_io_files(execution_context_t *context, job_t *job) {
         if (temp3 == NULL) { goto alloc_err; }
     }
 
-    job_cmd->input_file  = temp;
-    job_cmd->output_file = temp2;
-    job_cmd->append_file = temp3;
+    job_command->input_file  = temp;
+    job_command->output_file = temp2;
+    job_command->append_file = temp3;
 
     return;
 
