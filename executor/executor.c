@@ -31,7 +31,9 @@ int executor(execution_context_t *context_list) {
     prev_pipe_read = child_status = 0;
     job_pgid = 0;
 
-    if (context_list->type == CTX_END_TYPE) { return 233; }
+    if (context_list->type == CTX_END_TYPE) { 
+        return -1; 
+    }
 
     while (context_list->type != CTX_END_TYPE) {
         job_id = add_background_job_command(context_list);
@@ -41,7 +43,7 @@ int executor(execution_context_t *context_list) {
         if (!is_builtin_cmd) {
             child_pid = launch_command(context_list, &job_pgid, &prev_pipe_read);
 
-            job_list[job_id].pgid = job_pgid;
+            job_list[job_id].pgid = job_pgid;          
             int job_cmd_index = job_list[job_id].job_cmd_counter - 1;
             job_list[job_id].job_commands[job_cmd_index].pid = child_pid;   
         } else {
@@ -56,28 +58,7 @@ int executor(execution_context_t *context_list) {
         context_list++;
     }
 
-    if (!job_list[job_id].is_background) {
-        tcsetpgrp(0, job_list[job_id].pgid);
-    }
-
-    while (!job_list[job_id].is_background && !job_complete(job_id)) {
-        child_pid = waitpid(-job_list[job_id].pgid, &child_status, WUNTRACED);
-
-        for (int j = 0; j < job_list[job_id].job_cmd_counter; ++j) {
-            if (job_list[job_id].job_commands[j].pid == child_pid) {
-                job_list[job_id].job_commands[j].return_value = WEXITSTATUS(child_status);
-            }
-        }
-    }
-
-    if (!job_list[job_id].is_background && WIFSIGNALED(child_status)) {
-        printf("\n");
-    }
-
-    // set foreground process group back to shell pid
-    tcsetpgrp(0, global_shell_pgid);
-
-    return 1;
+    return job_id;
 }
 
 static int launch_builtin(execution_context_t *context, int builtin_id, int *prev_pipe_read) {
