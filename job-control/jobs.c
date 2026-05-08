@@ -1,9 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "jobs.h"
-#include "../builtins/builtins.h"
 #include "../parser/parser.h"
 
 static job_t *job_list_acquire_slot(void);
@@ -174,3 +175,36 @@ int job_complete(int job_id) {
 
     return 1;
 }
+
+void foreground_job_wait(int job_id) {
+    int child_pid;
+    int child_status;
+    
+    while (!job_complete(job_id)) {
+        child_pid = waitpid(-job_list[job_id].pgid, &child_status, WUNTRACED);
+
+        for (int j = 0; j < job_list[job_id].job_cmd_counter; ++j) {
+            if (job_list[job_id].job_commands[j].pid == child_pid) {
+                job_list[job_id].job_commands[j].return_value = WEXITSTATUS(child_status);
+            }
+        }
+    }   
+
+
+    if (!job_list[job_id].is_background && WIFSIGNALED(child_status)) {
+        printf("\n");
+    }
+}
+
+void job_control_after_launch(int job_id) {
+    if (job_id == -1 || job_list[job_id].is_background) {
+        return; 
+    }
+
+    tcsetpgrp(0, job_list[job_id].pgid);
+
+    foreground_job_wait(job_id);
+
+    tcsetpgrp(0, global_shell_pgid);
+}
+
