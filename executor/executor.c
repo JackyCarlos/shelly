@@ -23,12 +23,11 @@ static void handle_error(int err, char *filename);
 
 int executor(execution_context_t *context_list) {
     int prev_pipe_read;
-    int child_status; 
     int builtin_id, is_builtin_cmd;
     pid_t job_pgid;
     int job_id, child_pid;
 
-    prev_pipe_read = child_status = 0;
+    prev_pipe_read = 0;
     job_pgid = 0;
 
     if (context_list->type == CTX_END_TYPE) { 
@@ -43,15 +42,14 @@ int executor(execution_context_t *context_list) {
         if (!is_builtin_cmd) {
             child_pid = launch_command(context_list, &job_pgid, &prev_pipe_read);
 
-            job_list[job_id].pgid = job_pgid;          
-            int job_cmd_index = job_list[job_id].job_cmd_counter - 1;
-            job_list[job_id].job_commands[job_cmd_index].pid = child_pid;   
+            job_control_set_pgid(job_id, job_pgid);
+            job_control_set_command_pid(job_id, child_pid);
         } else {
             int dummy = launch_builtin(context_list, builtin_id, &prev_pipe_read);
         }
 
         if (context_list->pipeline_end) {
-            job_list[job_id].is_background = context_list->is_background;
+            job_control_register_background_job(job_id, context_list->is_background);
             job_pgid = 0;
         }
     
