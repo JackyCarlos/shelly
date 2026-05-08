@@ -62,7 +62,7 @@ void shelly_loop(void) {
         }
         
         started_job_id = executor(context_list);
-        job_control_after_launch(started_job_id);
+        job_control_after_launch(started_job_id);   // returns exit code of last command
 
         free_token_list(token_list);
         free_context_list(context_list);
