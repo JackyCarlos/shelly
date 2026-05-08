@@ -11,6 +11,7 @@ static job_t *job_list_acquire_slot(void);
 static void copy_tokens(execution_context_t *context, job_command_t *job);
 static void copy_io_files(execution_context_t *context, job_command_t *jobs);
 static void init_jobs(int start_index);
+static void cleanup_job(int job_id);
 
 static job_t *job_list;
 static int job_list_size = 8;
@@ -98,7 +99,6 @@ int add_background_job_command(execution_context_t *context) {
     copy_io_files(context, job_command);
     job_command->return_value = -1;
     
-
     if (context->pipeline_end) {
         job_list_index = -1; 
     }
@@ -196,16 +196,25 @@ void foreground_job_wait(int job_id) {
     }
 }
 
-void job_control_after_launch(int job_id) {
+int job_control_after_launch(int job_id) {
+    int return_value;
+    
     if (job_id == -1 || job_list[job_id].is_background) {
-        return; 
+        return -1; 
     }
 
     tcsetpgrp(0, job_list[job_id].pgid);
 
     foreground_job_wait(job_id);
 
+    if (job_complete(job_id)) {
+        return_value = job_list[job_id].job_commands[job_list[job_id].job_cmd_counter - 1].return_value;
+        cleanup_job(job_id);
+    }
+
     tcsetpgrp(0, global_shell_pgid);
+
+    return return_value;
 }
 
 void job_control_set_pgid(int job_id, pid_t job_pgid) {
@@ -229,4 +238,40 @@ void job_control_register_background_job(int job_id, int is_background) {
 
         printf("\n");
     }        
+}
+
+static void cleanup_job(int job_id) {
+    job_t *job;
+    job_command_t *job_command;
+    int i, j;
+
+    job = &job_list[job_id];
+    job->id = -1;
+
+
+    for (i = 0; i < job->job_cmd_counter; ++i) {
+        job_command = &job->job_commands[i];
+  
+        if ((job_command->flags & REDIR_IN) == REDIR_IN) {
+            free(job_command->input_file);
+        }
+
+        if ((job_command->flags & REDIR_OUT) == REDIR_OUT) {
+            free(job_command->output_file);
+        }
+
+        if ((job_command->flags & REDIR_APPEND) == REDIR_APPEND) {
+            free(job_command->append_file);
+        }
+
+        for (j = 0; j < job_command->argc; ++j) {
+            free(job_command->tokens[j]);
+        }
+
+        free(job_command->tokens);
+
+        job_command->return_value = -1;
+    }
+    
+    job->job_cmd_counter = 0;
 }

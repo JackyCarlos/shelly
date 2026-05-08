@@ -30,7 +30,7 @@ extern pid_t global_shell_pgid;
 void init_job_control(void);
 int add_background_job_command(execution_context_t *context);
 int job_complete(int job_id);
-void job_control_after_launch(int job_id);
+int job_control_after_launch(int job_id);
 void foreground_job_wait(int job_id);
 
 void job_control_set_pgid(int job_id, pid_t job_pgid);
