@@ -12,7 +12,7 @@ static void copy_tokens(execution_context_t *context, job_command_t *job);
 static void copy_io_files(execution_context_t *context, job_command_t *jobs);
 static void init_jobs(int start_index);
 
-job_t *job_list;
+static job_t *job_list;
 static int job_list_size = 8;
 static int job_list_index = -1;
 
@@ -208,3 +208,25 @@ void job_control_after_launch(int job_id) {
     tcsetpgrp(0, global_shell_pgid);
 }
 
+void job_control_set_pgid(int job_id, pid_t job_pgid) {
+    job_list[job_id].pgid = job_pgid; 
+}
+
+void job_control_set_command_pid(int job_id, int pid) {
+    int job_cmd_index = job_list[job_id].job_cmd_counter - 1;
+    job_list[job_id].job_commands[job_cmd_index].pid = pid;   
+}
+
+void job_control_register_background_job(int job_id, int is_background) {
+    job_list[job_id].is_background = is_background;
+
+    if (is_background) {
+        printf("[%d] ", job_id + 1);
+
+        for (int i = 0; i < job_list[job_id].job_cmd_counter; ++i) {
+            printf("%d ", job_list[job_id].job_commands[i].pid);
+        }
+
+        printf("\n");
+    }        
+}
