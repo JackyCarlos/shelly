@@ -21,7 +21,7 @@ void shelly_loop(void) {
     char *line;
     token_t *token_list;
     execution_context_t *context_list;
-    int status, err;
+    int started_job_id, err;
 
     ensure_shell_process_group();
 
@@ -32,8 +32,6 @@ void shelly_loop(void) {
 
     setup_signal_handlers();
     init_job_control();
-
-    status = 1;
 
     while (1) {
         print_cli();
@@ -63,8 +61,9 @@ void shelly_loop(void) {
             continue;
         }
         
-        status = executor(context_list); 
-        
+        started_job_id = executor(context_list);
+        job_control_after_launch(started_job_id);
+
         free_token_list(token_list);
         free_context_list(context_list);
     }
