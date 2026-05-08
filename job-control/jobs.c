@@ -11,6 +11,7 @@ static job_t *job_list_acquire_slot(void);
 static void copy_tokens(execution_context_t *context, job_command_t *job);
 static void copy_io_files(execution_context_t *context, job_command_t *jobs);
 static void init_jobs(int start_index);
+static int job_complete(int job_id);
 static void cleanup_job(int job_id);
 
 static job_t *job_list;
@@ -164,7 +165,7 @@ static void copy_io_files(execution_context_t *context, job_command_t *job_comma
         exit(0);
 }
 
-int job_complete(int job_id) {
+static int job_complete(int job_id) {
     int i;
 
     for (i = 0; i < job_list[job_id].job_cmd_counter; ++i) {
