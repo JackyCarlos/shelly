@@ -22,7 +22,7 @@ SRC_EXECUTOR = \
 
 SRC_JOB_CTRL = \
 	job-control/jobs.c \
-	job-control/jobs_control_builtins.c
+	builtins/jobs_control_builtins.c
 
 SRCS = \
 	$(SRC_CORE) \
