@@ -26,6 +26,7 @@ int executor(execution_context_t *context_list) {
     int builtin_id, is_builtin_cmd;
     pid_t job_pgid;
     int job_id, child_pid;
+    int builtin_return;
 
     prev_pipe_read = 0;
     job_pgid = 0;
@@ -45,7 +46,8 @@ int executor(execution_context_t *context_list) {
             job_control_set_pgid(job_id, job_pgid);
             job_control_set_command_pid(job_id, child_pid);
         } else {
-            int dummy = launch_builtin(context_list, builtin_id, &prev_pipe_read);
+            builtin_return = launch_builtin(context_list, builtin_id, &prev_pipe_read);
+            job_control_set_builtin_returnval(job_id, builtin_return);      
         }
 
         if (context_list->pipeline_end) {
