@@ -14,7 +14,7 @@ static void init_jobs(int start_index);
 static int job_complete(int job_id);
 static void cleanup_job(int job_id);
 
-static job_t *job_list;
+job_t *job_list;
 static int job_list_size = 8;
 static int job_list_index = -1;
 
@@ -180,6 +180,8 @@ static int job_complete(int job_id) {
 void foreground_job_wait(int job_id) {
     int child_pid;
     int child_status;
+
+    child_status = 0;
     
     while (!job_complete(job_id)) {
         child_pid = waitpid(-job_list[job_id].pgid, &child_status, WUNTRACED);
@@ -225,6 +227,10 @@ void job_control_set_pgid(int job_id, pid_t job_pgid) {
 void job_control_set_command_pid(int job_id, int pid) {
     int job_cmd_index = job_list[job_id].job_cmd_counter - 1;
     job_list[job_id].job_commands[job_cmd_index].pid = pid;   
+}
+
+void job_control_set_builtin_returnval(int job_id, int builtin_return) {
+    job_list[job_id].job_commands[job_list[job_id].job_cmd_counter - 1].return_value = builtin_return;
 }
 
 void job_control_register_background_job(int job_id, int is_background) {
