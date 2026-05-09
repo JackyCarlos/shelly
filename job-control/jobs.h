@@ -26,6 +26,7 @@ typedef struct job {
 } job_t;
 
 extern pid_t global_shell_pgid;
+extern job_t *job_list;
 
 void init_job_control(void);
 int add_background_job_command(execution_context_t *context);
@@ -35,3 +36,4 @@ void foreground_job_wait(int job_id);
 void job_control_set_pgid(int job_id, pid_t job_pgid);
 void job_control_set_command_pid(int job_id, int pid);
 void job_control_register_background_job(int job_id, int is_background);
+void job_control_set_builtin_returnval(int job_id, int builtin_return);
