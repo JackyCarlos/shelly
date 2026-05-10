@@ -15,7 +15,7 @@ static int job_complete(int job_id);
 static void cleanup_job(int job_id);
 
 job_t *job_list;
-static int job_list_size = 8;
+int job_list_size = 8;
 static int job_list_index = -1;
 
 void init_job_control(void) {
@@ -99,6 +99,7 @@ int add_background_job_command(execution_context_t *context) {
     copy_tokens(context, job_command);
     copy_io_files(context, job_command);
     job_command->return_value = -1;
+    job_command->job_stat = RUNNING;
     
     if (context->pipeline_end) {
         job_list_index = -1; 
@@ -180,6 +181,7 @@ static int job_complete(int job_id) {
 void foreground_job_wait(int job_id) {
     int child_pid;
     int child_status;
+    job_command_t *job_command;
 
     child_status = 0;
     
@@ -187,8 +189,11 @@ void foreground_job_wait(int job_id) {
         child_pid = waitpid(-job_list[job_id].pgid, &child_status, WUNTRACED);
 
         for (int j = 0; j < job_list[job_id].job_cmd_counter; ++j) {
-            if (job_list[job_id].job_commands[j].pid == child_pid) {
-                job_list[job_id].job_commands[j].return_value = WEXITSTATUS(child_status);
+            job_command = &job_list[job_id].job_commands[j];
+
+            if (job_command->pid == child_pid) {
+                job_command->return_value = WEXITSTATUS(child_status);
+                job_command->job_stat = TERMINATED;
             }
         }
     }   
