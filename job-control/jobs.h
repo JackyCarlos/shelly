@@ -2,6 +2,12 @@
 
 typedef struct execution_context execution_context_t;
 
+typedef enum {
+    RUNNING,
+    STOPPED,
+    TERMINATED
+} job_status;
+
 typedef struct job_command {
     char **tokens;
     int argc;
@@ -12,6 +18,7 @@ typedef struct job_command {
     char *append_file;
  
     int pid;
+    job_status job_stat;
     int return_value;
 } job_command_t;
 
@@ -27,6 +34,7 @@ typedef struct job {
 
 extern pid_t global_shell_pgid;
 extern job_t *job_list;
+extern int job_list_size;
 
 void init_job_control(void);
 int add_background_job_command(execution_context_t *context);
