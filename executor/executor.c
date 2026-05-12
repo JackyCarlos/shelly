@@ -21,48 +21,46 @@ static void parent_set_pgid(int pid, pid_t *pgid);
 static void child_set_pgid(pid_t *pgid);
 static void handle_error(int err, char *filename);
 
-int executor(execution_context_t *context_list) {
+job_t *executor(execution_context_t *context_list) {
     int prev_pipe_read;
     int builtin_id, is_builtin_cmd;
     pid_t job_pgid;
-    int job_id, child_pid;
+    int child_pid;
     int builtin_return;
+    job_t *job;
 
     prev_pipe_read = 0;
     job_pgid = 0;
 
     if (context_list->type == CTX_END_TYPE) { 
-        return -1; 
+        return NULL; 
     }
 
     while (context_list->type != CTX_END_TYPE) {
-        job_id = job_control_get_jobid(context_list);
-        job_control_add_job_command(job_id, context_list);
-
-        // do operation in separate function without referencing 
-        job_list[job_id].is_background = context_list->is_background;
+        job = job_control_get_job(context_list);
+        job_control_add_job_command(job, context_list);
 
         is_builtin_cmd = is_builtin(*context_list->tokens, &builtin_id);
 
         if (!is_builtin_cmd) {
             child_pid = launch_command(context_list, &job_pgid, &prev_pipe_read);
 
-            job_control_set_pgid(job_id, job_pgid);
-            job_control_set_command_pid(job_id, child_pid);
+            job_control_set_pgid(job, job_pgid);
+            job_control_set_command_pid(job, child_pid);
         } else {
             builtin_return = launch_builtin(context_list, builtin_id, &prev_pipe_read);
-            job_control_set_builtin_returnval(job_id, builtin_return);      
+            job_control_set_builtin_returnval(job, builtin_return);      
         }
 
         if (context_list->pipeline_end) {
-            job_control_register_background_job(job_id, context_list->is_background);
+            job_control_register_background_job(job, context_list->is_background);
             job_pgid = 0;
         }
     
         context_list++;
     }
 
-    return job_id;
+    return job;
 }
 
 static int launch_builtin(execution_context_t *context, int builtin_id, int *prev_pipe_read) {

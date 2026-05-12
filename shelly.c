@@ -21,7 +21,8 @@ void shelly_loop(void) {
     char *line;
     token_t *token_list;
     execution_context_t *context_list;
-    int started_job_id, err;
+    int err;
+    job_t *started_job;
 
     ensure_shell_process_group();
 
@@ -61,8 +62,8 @@ void shelly_loop(void) {
             continue;
         }
         
-        started_job_id = executor(context_list);
-        job_control_after_launch(started_job_id);   // returns exit code of last command
+        started_job = executor(context_list);
+        job_control_after_launch(started_job);   // returns exit code of last command
 
         free_token_list(token_list);
         free_context_list(context_list);

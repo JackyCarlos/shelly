@@ -7,12 +7,12 @@
 #include "jobs.h"
 #include "../parser/parser.h"
 
-static job_t *job_list_acquire_slot(void);
+static int job_list_acquire_slot(void);
 static void copy_tokens(execution_context_t *context, job_command_t *job);
 static void copy_io_files(execution_context_t *context, job_command_t *jobs);
 static void init_jobs(int start_index);
-static int job_complete(int job_id);
-static void cleanup_job(int job_id);
+static int job_complete(job_t *job);
+static void cleanup_job(job_t *job);
 
 job_t *job_list;
 int job_list_size = 8;
@@ -54,7 +54,7 @@ static void init_jobs(int start_index) {
         exit(0);    
 }
 
-static job_t *job_list_acquire_slot(void) {
+static int job_list_acquire_slot(void) {
     int i;
 
     i = 0;
@@ -63,7 +63,7 @@ static job_t *job_list_acquire_slot(void) {
         if (job_list[i].id == -1) {
             job_list_index = i;
 
-            return &job_list[i];
+            return i;
         }
 
         i++;
@@ -75,23 +75,25 @@ static job_t *job_list_acquire_slot(void) {
 
     init_jobs(i);
 
-    return &job_list[i];
+    return i;
 }
 
-int job_control_get_jobid(execution_context_t *context) {
-    job_t *job; 
-
-    job = (job_list_index == -1) ? job_list_acquire_slot() : &job_list[job_list_index];
-    job->id = job_list_index;
-    
-    return job->id;
-}
-
-int job_control_add_job_command(int job_id, execution_context_t *context) {
+job_t *job_control_get_job(execution_context_t *context) {
+    int job_id;
     job_t *job;
-    job_command_t *job_command;
+
+    job_id = (job_list_index == -1) ? job_list_acquire_slot() : job_list_index;
+    job_list_index = (context->pipeline_end) ? -1 : job_id;
 
     job = &job_list[job_id];
+    job->id = job_id;
+    job->is_background = context->is_background;
+    
+    return job;
+}
+
+void job_control_add_job_command(job_t *job, execution_context_t *context) {
+    job_command_t *job_command;
 
     // do we need more space for more job_command_t's? 
     if (job->job_cmd_counter == job->job_cmds_size) {
@@ -109,11 +111,7 @@ int job_control_add_job_command(int job_id, execution_context_t *context) {
     job_command->return_value = -1;
     job_command->job_stat = RUNNING;
     
-    if (context->pipeline_end) {
-        job_list_index = -1; 
-    }
-
-    return job->id;
+    return;
 
     alloc_err:
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
@@ -176,30 +174,30 @@ static void copy_io_files(execution_context_t *context, job_command_t *job_comma
         exit(0);
 }
 
-static int job_complete(int job_id) {
+static int job_complete(job_t *job) {
     int i;
 
-    for (i = 0; i < job_list[job_id].job_cmd_counter; ++i) {
-        if (job_list[job_id].job_commands[i].return_value == -1) {
+    for (i = 0; i < job->job_cmd_counter; ++i) {
+        if (job->job_commands[i].return_value == -1) {
             return 0;
         } 
     }
-
+ 
     return 1;
 }
 
-void foreground_job_wait(int job_id) {
+void foreground_job_wait(job_t *job) {
     int child_pid;
     int child_status;
     job_command_t *job_command;
 
     child_status = 0;
     
-    while (!job_complete(job_id)) {
-        child_pid = waitpid(-job_list[job_id].pgid, &child_status, WUNTRACED);
+    while (!job_complete(job)) {
+        child_pid = waitpid(-job->pgid, &child_status, WUNTRACED);
 
-        for (int j = 0; j < job_list[job_id].job_cmd_counter; ++j) {
-            job_command = &job_list[job_id].job_commands[j];
+        for (int j = 0; j < job->job_cmd_counter; ++j) {
+            job_command = &job->job_commands[j];
 
             if (job_command->pid == child_pid) {
                 job_command->return_value = WEXITSTATUS(child_status);
@@ -209,25 +207,25 @@ void foreground_job_wait(int job_id) {
     }   
 
 
-    if (!job_list[job_id].is_background && WIFSIGNALED(child_status)) {
+    if (!job->is_background && WIFSIGNALED(child_status)) {
         printf("\n");
     }
 }
 
-int job_control_after_launch(int job_id) {
+int job_control_after_launch(job_t *job) {
     int return_value;
     
-    if (job_id == -1 || job_list[job_id].is_background) {
+    if (job == NULL || job->is_background) {
         return -1; 
     }
 
-    tcsetpgrp(0, job_list[job_id].pgid);
+    tcsetpgrp(0, job->pgid);
 
-    foreground_job_wait(job_id);
+    foreground_job_wait(job);
 
-    if (job_complete(job_id)) {
-        return_value = job_list[job_id].job_commands[job_list[job_id].job_cmd_counter - 1].return_value;
-        cleanup_job(job_id);
+    if (job_complete(job)) {
+        return_value = job->job_commands[job->job_cmd_counter - 1].return_value;
+        cleanup_job(job);
     }
 
     tcsetpgrp(0, global_shell_pgid);
@@ -235,37 +233,35 @@ int job_control_after_launch(int job_id) {
     return return_value;
 }
 
-void job_control_set_pgid(int job_id, pid_t job_pgid) {
-    job_list[job_id].pgid = job_pgid; 
+void job_control_set_pgid(job_t *job, pid_t job_pgid) {
+    job->pgid = job_pgid; 
 }
 
-void job_control_set_command_pid(int job_id, int pid) {
-    int job_cmd_index = job_list[job_id].job_cmd_counter - 1;
-    job_list[job_id].job_commands[job_cmd_index].pid = pid;   
+void job_control_set_command_pid(job_t *job, int pid) {
+    int job_cmd_index = job->job_cmd_counter - 1;
+    job->job_commands[job_cmd_index].pid = pid;   
 }
 
-void job_control_set_builtin_returnval(int job_id, int builtin_return) {
-    job_list[job_id].job_commands[job_list[job_id].job_cmd_counter - 1].return_value = builtin_return;
+void job_control_set_builtin_returnval(job_t *job, int builtin_return) {
+    job->job_commands[job->job_cmd_counter - 1].return_value = builtin_return;
 }
 
-void job_control_register_background_job(int job_id, int is_background) {
+void job_control_register_background_job(job_t *job, int is_background) {
     if (is_background) {
-        printf("[%d] ", job_id + 1);
+        printf("[%d] ", job->id + 1);
 
-        for (int i = 0; i < job_list[job_id].job_cmd_counter; ++i) {
-            printf("%d ", job_list[job_id].job_commands[i].pid);
+        for (int i = 0; i < job->job_cmd_counter; ++i) {
+            printf("%d ", job->job_commands[i].pid);
         }
 
         printf("\n");
     }        
 }
 
-static void cleanup_job(int job_id) {
-    job_t *job;
+static void cleanup_job(job_t *job) {
     job_command_t *job_command;
     int i, j;
 
-    job = &job_list[job_id];
     job->id = -1;
 
 
