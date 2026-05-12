@@ -36,7 +36,11 @@ int executor(execution_context_t *context_list) {
     }
 
     while (context_list->type != CTX_END_TYPE) {
-        job_id = add_background_job_command(context_list);
+        job_id = job_control_get_jobid(context_list);
+        job_control_add_job_command(job_id, context_list);
+
+        // do operation in separate function without referencing 
+        job_list[job_id].is_background = context_list->is_background;
 
         is_builtin_cmd = is_builtin(*context_list->tokens, &builtin_id);
 
