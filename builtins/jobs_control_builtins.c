@@ -15,12 +15,12 @@ int job_control_builtin_jobs(char **tokens) {
 
     job_stat_id = 0;
     ongoing = 1;
-    
+
     for (job_id = 0; job_id < job_list_size; ++job_id) {
         i = 0;
         
-        if (job_list[job_id].id == -1) {
-            break;
+        if (job_list[job_id].id == -1 || !job_list[job_id].is_background) {
+            continue;
         }
 
         printf("[%d]  %s ", job_list[job_id].id + 1, " ");
@@ -35,12 +35,12 @@ int job_control_builtin_jobs(char **tokens) {
             }
             
             (i == 0) ? printf("") : printf("       ");
-            printf("%11s", job_statuses[job_stat_id]);
+            printf("%-11s", job_statuses[job_stat_id]);
 
             while (ongoing) {
-                while (job_command->tokens[j++]) {
-                    printf("test1\n");
+                while (job_command->tokens[j] != NULL) {
                     printf("%s ", job_command->tokens[j]);
+                    j++;
                 }
 
                 print_redirects(job_command);
@@ -54,7 +54,10 @@ int job_control_builtin_jobs(char **tokens) {
                         ongoing = 0;
                         printf("\n");
                     }
-                } 
+                } else {
+                    printf("\n");
+                    ongoing = 0;
+                }
 
                 j = 0;
             }
