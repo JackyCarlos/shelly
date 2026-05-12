@@ -37,10 +37,11 @@ extern job_t *job_list;
 extern int job_list_size;
 
 void init_job_control(void);
-int add_background_job_command(execution_context_t *context);
+int job_control_add_job_command(int job_id, execution_context_t *context);
 int job_control_after_launch(int job_id);
 void foreground_job_wait(int job_id);
 
+int job_control_get_jobid(execution_context_t *context);
 void job_control_set_pgid(int job_id, pid_t job_pgid);
 void job_control_set_command_pid(int job_id, int pid);
 void job_control_register_background_job(int job_id, int is_background);

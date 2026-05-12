@@ -78,12 +78,20 @@ static job_t *job_list_acquire_slot(void) {
     return &job_list[i];
 }
 
-int add_background_job_command(execution_context_t *context) {
+int job_control_get_jobid(execution_context_t *context) {
     job_t *job; 
-    job_command_t *job_command;
 
     job = (job_list_index == -1) ? job_list_acquire_slot() : &job_list[job_list_index];
     job->id = job_list_index;
+    
+    return job->id;
+}
+
+int job_control_add_job_command(int job_id, execution_context_t *context) {
+    job_t *job;
+    job_command_t *job_command;
+
+    job = &job_list[job_id];
 
     // do we need more space for more job_command_t's? 
     if (job->job_cmd_counter == job->job_cmds_size) {
@@ -139,6 +147,8 @@ static void copy_tokens(execution_context_t *context, job_command_t *job_command
 
 static void copy_io_files(execution_context_t *context, job_command_t *job_command) {
     char *temp, *temp2, *temp3;
+
+    job_command->flags = context->flags;
 
     if ((context->flags & REDIR_IN) == REDIR_IN) {
         temp = strdup(context->input_file);
@@ -239,8 +249,6 @@ void job_control_set_builtin_returnval(int job_id, int builtin_return) {
 }
 
 void job_control_register_background_job(int job_id, int is_background) {
-    job_list[job_id].is_background = is_background;
-
     if (is_background) {
         printf("[%d] ", job_id + 1);
 
