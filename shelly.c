@@ -17,6 +17,8 @@ void setup_signal_handlers(void);
 
 pid_t global_shell_pgid = 0;
 
+extern volatile sig_atomic_t last_signal;
+
 void shelly_loop(void) {
     char *line;
     token_t *token_list;
@@ -71,19 +73,28 @@ void shelly_loop(void) {
 }
 
 void SIGINT_Handler(int sig) {
-    return;
+    last_signal = sig;
+}
+
+void SIGchld_handler(int sig) {
+    last_signal = sig;
 }
 
 void setup_signal_handlers(void) {
-    struct sigaction sa, sa2;
+    struct sigaction sa, sa2, sa3;
     sa.sa_handler = SIGINT_Handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
     sa2.sa_handler = SIG_IGN;
 
+    sigemptyset(&sa3.sa_mask);
+    sa3.sa_flags = 0;
+    sa3.sa_handler = SIGchld_handler;
+
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTTOU, &sa2, NULL);
+    sigaction(SIGCHLD, &sa3, NULL);
 }
 
 void ensure_shell_process_group(void) {
