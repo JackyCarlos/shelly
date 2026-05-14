@@ -17,7 +17,8 @@ void setup_signal_handlers(void);
 
 pid_t global_shell_pgid = 0;
 
-extern volatile sig_atomic_t last_signal;
+volatile sig_atomic_t sig_sigint = 0;
+volatile sig_atomic_t sig_sigchld = 0;
 
 void shelly_loop(void) {
     char *line;
@@ -73,11 +74,11 @@ void shelly_loop(void) {
 }
 
 void SIGINT_Handler(int sig) {
-    last_signal = sig;
+    sig_sigint = 1;
 }
 
 void SIGchld_handler(int sig) {
-    last_signal = sig;
+    sig_sigchld = 1;
 }
 
 void setup_signal_handlers(void) {
