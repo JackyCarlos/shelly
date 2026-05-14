@@ -2,10 +2,14 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/wait.h>
 
 #include "parser.h"
 
 #define     INPUT_CHUNK_SIZE    64
+
+extern volatile sig_atomic_t sig_sigint;
+extern volatile sig_atomic_t sig_sigchld;
 
 typedef enum {
     STATUS_TOKENIZER_WORDOUT,
@@ -33,7 +37,14 @@ char *read_line(int *err) {
 
             goto input_err;
         } else if (bytes_read == -1) {
-            *err = (errno == EINTR ? READ_LINE_SIGINT_INTERRUPT : READ_LINE_ERROR);
+            if (sig_sigint) {
+                *err = READ_LINE_SIGINT_INTERRUPT;
+                sig_sigint = 0;
+            } else if (sig_sigchld) {
+                sig_sigchld = 0;
+            } else {
+                *err = READ_LINE_ERROR;
+            }
             
             goto input_err;
         } else {
