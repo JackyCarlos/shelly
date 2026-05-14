@@ -3,6 +3,8 @@ CC = gcc
 CFLAGS = -I.
 CFLAGS_TEST = -I. -I./external/unity/src
 
+CLINK_FLAGS = -lreadline
+
 SRC_UNITY = ./external/unity/src/unity.c
 
 SRC_CORE = \
@@ -24,12 +26,16 @@ SRC_JOB_CTRL = \
 	job-control/jobs.c \
 	builtins/jobs_control_builtins.c
 
+SRC_RL_INPUT = \
+	input/input.c
+
 SRCS = \
 	$(SRC_CORE) \
 	$(SRC_BUILTINS) \
 	$(SRC_PARSER) \
 	$(SRC_EXECUTOR) \
-	$(SRC_JOB_CTRL)
+	$(SRC_JOB_CTRL) \
+	$(SRC_RL_INPUT)
 
 SRCS_TEST_TOKENIZER = \
 	parser/tokenizer.c \
@@ -45,7 +51,7 @@ SRCS_TEST_CONTEXT_BUILDER = \
 	$(SRC_UNITY)
 
 default: $(SRCS)
-	$(CC) $(CFLAGS) -o bin/shelly $(SRCS)
+	$(CC) $(CFLAGS) -o bin/shelly $(SRCS) $(CLINK_FLAGS) 
 
 test-tokenizer: $(SRCS_TEST_TOKENIZER)
 	$(CC) $(CFLAGS_TEST) -o bin/test_tokenizer $(SRCS_TEST_TOKENIZER)
