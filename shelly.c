@@ -13,6 +13,7 @@ static void print_cli(void);
 
 void ensure_shell_process_group(void);
 void SIGINT_Handler(int sig);
+void SIGCHLD_handler(int sig);
 void setup_signal_handlers(void);
 
 pid_t global_shell_pgid = 0;
@@ -77,7 +78,7 @@ void SIGINT_Handler(int sig) {
     sig_sigint = 1;
 }
 
-void SIGchld_handler(int sig) {
+void SIGCHLD_handler(int sig) {
     sig_sigchld = 1;
 }
 
@@ -91,7 +92,7 @@ void setup_signal_handlers(void) {
 
     sigemptyset(&sa3.sa_mask);
     sa3.sa_flags = 0;
-    sa3.sa_handler = SIGchld_handler;
+    sa3.sa_handler = SIGCHLD_handler;
 
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTTOU, &sa2, NULL);
