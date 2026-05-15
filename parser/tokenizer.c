@@ -42,6 +42,8 @@ char *read_line(int *err) {
                 sig_sigint = 0;
             } else if (sig_sigchld) {
                 sig_sigchld = 0;
+                
+                continue;
             } else {
                 *err = READ_LINE_ERROR;
             }
