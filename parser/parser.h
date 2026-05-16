@@ -70,13 +70,6 @@ typedef struct execution_context {
     int pipeline_end;
 } execution_context_t;
 
-typedef enum {
-    READ_LINE_OK = 0,
-    READ_LINE_EOF,
-    READ_LINE_SIGINT_INTERRUPT,
-    READ_LINE_ERROR
-} readline_return_values;
-
 char *read_line(int *err);
 token_t *tokenizer(char *line); 
 
