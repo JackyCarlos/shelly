@@ -3,7 +3,7 @@
 typedef struct execution_context execution_context_t;
 
 typedef enum {
-    RUNNING,
+    RUNNING = 1,
     STOPPED,
     TERMINATED
 } job_status;
@@ -37,9 +37,10 @@ extern job_t *job_list;
 extern int job_list_size;
 
 void init_job_control(void);
-void job_control_add_job_command(job_t *job, execution_context_t *context);
+void job_control_add_job_command(job_t *job, execution_context_t *context, int is_builtin);
 int job_control_after_launch(job_t *job);
 void foreground_job_wait(job_t *job);
+void reap_background_jobs(void);
 
 job_t *job_control_get_job(execution_context_t *context);
 void job_control_set_pgid(job_t *job, pid_t job_pgid);
