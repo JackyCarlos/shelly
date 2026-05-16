@@ -38,9 +38,9 @@ job_t *executor(execution_context_t *context_list) {
 
     while (context_list->type != CTX_END_TYPE) {
         job = job_control_get_job(context_list);
-        job_control_add_job_command(job, context_list);
-
         is_builtin_cmd = is_builtin(*context_list->tokens, &builtin_id);
+        
+        job_control_add_job_command(job, context_list, is_builtin_cmd);
 
         if (!is_builtin_cmd) {
             child_pid = launch_command(context_list, &job_pgid, &prev_pipe_read);
