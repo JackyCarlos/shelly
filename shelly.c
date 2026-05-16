@@ -57,6 +57,7 @@ void shelly_loop(void) {
 
         token_list = tokenizer(line);
         free(line);
+        free(cli_line_string);
 
         context_list = get_context(token_list);
 
