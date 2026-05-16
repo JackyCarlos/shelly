@@ -55,7 +55,9 @@ char *shelly_linenoise(char *prompt, int *err, t_sigchld_hook on_sigchld) {
         if (got_sigchld) {
             got_sigchld = 0;
 
-            // run job reaping and cleanup via hook
+            linenoiseHide(&ls);
+            on_sigchld();
+            linenoiseShow(&ls);
         }
 
         FD_ZERO(&rfds);
@@ -71,6 +73,9 @@ char *shelly_linenoise(char *prompt, int *err, t_sigchld_hook on_sigchld) {
                     got_sigchld = 0;
 
                     // run job reaping and cleanup via hook
+                    linenoiseHide(&ls);
+                    on_sigchld();
+                    linenoiseShow(&ls);
                     continue;
                 }
 
