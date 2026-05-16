@@ -8,8 +8,9 @@
 #include "builtins/builtins.h"
 #include "job-control/jobs.h"
 #include "executor/executor.h"
+#include "input/input.h"
 
-static void print_cli(void);
+static char *cli_line(void);
 
 void ensure_shell_process_group(void);
 void SIGINT_Handler(int sig);
@@ -22,7 +23,7 @@ volatile sig_atomic_t sig_sigint = 0;
 volatile sig_atomic_t sig_sigchld = 0;
 
 void shelly_loop(void) {
-    char *line;
+    char *cli_line_string, *line;
     token_t *token_list;
     execution_context_t *context_list;
     int err;
@@ -39,16 +40,15 @@ void shelly_loop(void) {
     init_job_control();
 
     while (1) {
-        print_cli();
-        
-        line = read_line(&err);    
+        cli_line_string = cli_line();
+        line = shelly_linenoise(cli_line_string, &err, NULL);
+
         if (line == NULL) {
             switch (err) {
                 case READ_LINE_EOF:
-                    printf("\nexit\n");
+                    printf("exit\n");
                     exit(0);
                 case READ_LINE_SIGINT_INTERRUPT:
-                    printf("\n");
                     continue;
                 default:
                     continue;
@@ -74,31 +74,6 @@ void shelly_loop(void) {
     }
 }
 
-void SIGINT_Handler(int sig) {
-    sig_sigint = 1;
-}
-
-void SIGCHLD_handler(int sig) {
-    sig_sigchld = 1;
-}
-
-void setup_signal_handlers(void) {
-    struct sigaction sa, sa2, sa3;
-    sa.sa_handler = SIGINT_Handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-
-    sa2.sa_handler = SIG_IGN;
-
-    sigemptyset(&sa3.sa_mask);
-    sa3.sa_flags = 0;
-    sa3.sa_handler = SIGCHLD_handler;
-
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTTOU, &sa2, NULL);
-    sigaction(SIGCHLD, &sa3, NULL);
-}
-
 void ensure_shell_process_group(void) {
     pid_t pgid;
 
@@ -112,17 +87,19 @@ void ensure_shell_process_group(void) {
     }
 }
 
-static void print_cli(void) {
-    char *cwd, *user;
+static char *cli_line(void) {
+    char *cli_line_string, *cwd, *user;
     char hostname[64];
+
+    cli_line_string = malloc(sizeof(char) * 128);
 
     cwd = getcwd(NULL, MAX_PATH_LEN);
     user = getlogin();
     gethostname(hostname, sizeof(hostname));
 
-    printf("%s@%s %s $ ", (user != NULL ? user : ""), hostname, cwd);
+    sprintf(cli_line_string, "%s@%s %s $ ", (user != NULL ? user : ""), hostname, cwd);
 
     free(cwd);
-    fflush(stdout);
+    
+    return cli_line_string;
 }
-
