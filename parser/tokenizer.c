@@ -17,7 +17,7 @@ typedef enum {
     STATUS_TOKENIZER_REDIRECT_OUT,
 } tokenizer_status;
 
-char *read_line(int *err) {
+/* char *read_line(int *err) {
     char *buffer;
     int buf_size, len;
     int bytes_read;
@@ -77,7 +77,7 @@ char *read_line(int *err) {
     alloc_err:
         fprintf(stderr, "memory allocation error. Terminating shelly ..\n");
         exit(0);
-}
+} */
 
 token_t *tokenizer(char *line) {
     token_t *token_list;
