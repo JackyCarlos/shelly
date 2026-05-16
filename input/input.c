@@ -53,13 +53,9 @@ char *shelly_linenoise(char *prompt, int *err, t_sigchld_hook on_sigchld) {
         fd_set rfds;
 
         if (got_sigchld) {
-            //got_sigchld = 0;
+            got_sigchld = 0;
 
-            if (on_sigchld)
-                ; //   // job_control.c-Funktion, aber indirekt
-
-            // kein hide/show, kein redraw, kein printf
-            // also transparent
+            // run job reaping and cleanup via hook
         }
 
         FD_ZERO(&rfds);
@@ -68,28 +64,23 @@ char *shelly_linenoise(char *prompt, int *err, t_sigchld_hook on_sigchld) {
         int ret = select(ls.ifd + 1, &rfds, NULL, NULL, NULL);
 
         if (ret == -1) {
+            *err = READ_LINE_ERROR;
+
             if (errno == EINTR) {
-                if (got_sigint) {
-                    got_sigint = 0;
-                    printf("hab 1 sigint bekommen\n");
+                if (got_sigchld) {
+                    got_sigchld = 0;
 
-                    *err = READ_LINE_SIGINT_INTERRUPT;
-                } else if (got_sigchld) {
-                    linenoiseHide(&ls);
-                    //printf("_____\n"); 
-                    on_sigchld();
-                    linenoiseShow(&ls);
-
+                    // run job reaping and cleanup via hook
                     continue;
-                    ; // got_sigchld = 0;
                 }
 
-                linenoiseEditStop(&ls);
-                return NULL;
+                if (got_sigint) {
+                    got_sigint = 0;
+                    *err = READ_LINE_SIGINT_INTERRUPT;
+                } 
             }
 
             linenoiseEditStop(&ls);
-            *err = READ_LINE_ERROR;
             return NULL;
         }
 
@@ -97,8 +88,9 @@ char *shelly_linenoise(char *prompt, int *err, t_sigchld_hook on_sigchld) {
             errno = 0;
             line = linenoiseEditFeed(&ls);
 
-            if (line == linenoiseEditMore)
+            if (line == linenoiseEditMore) {
                 continue;
+            }
 
             linenoiseEditStop(&ls);
 
