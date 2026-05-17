@@ -41,7 +41,7 @@ void shelly_loop(void) {
 
     while (1) {
         cli_line_string = cli_line();
-        line = shelly_linenoise(cli_line_string, &err, NULL);
+        line = shelly_linenoise(cli_line_string, &err, reap_background_jobs);
 
         if (line == NULL) {
             switch (err) {
