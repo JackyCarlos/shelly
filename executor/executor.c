@@ -112,7 +112,7 @@ static int launch_command(execution_context_t *context, pid_t *job_pgid, int *pr
         execvp(*context->tokens, context->tokens);
 
         fprintf(stderr, "exec error\n");
-        exit(1);
+        exit(127);
     } else if (pid < 0) {
         fprintf(stderr, "fork error\n");
     } else {
