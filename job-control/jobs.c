@@ -12,6 +12,7 @@ static void copy_tokens(execution_context_t *context, job_command_t *job);
 static void copy_io_files(execution_context_t *context, job_command_t *jobs);
 static void init_jobs(int start_index);
 static int job_complete(job_t *job);
+static int job_running(job_t *job);
 static void cleanup_job(job_t *job);
 
 job_t *job_list;
@@ -41,6 +42,7 @@ static void init_jobs(int start_index) {
         job_list[j].id = -1;
         job_list[j].job_cmd_counter = 0;
         job_list[j].job_cmds_size = 8;
+        job_list[j].pgid = -1;
 
         job_list[j].job_commands = malloc(job_list[i].job_cmds_size * sizeof(job_command_t));
 
@@ -92,7 +94,7 @@ job_t *job_control_get_job(execution_context_t *context) {
     return job;
 }
 
-void job_control_add_job_command(job_t *job, execution_context_t *context) {
+void job_control_add_job_command(job_t *job, execution_context_t *context, int is_builtin) {
     job_command_t *job_command;
 
     // do we need more space for more job_command_t's? 
@@ -109,7 +111,7 @@ void job_control_add_job_command(job_t *job, execution_context_t *context) {
     copy_tokens(context, job_command);
     copy_io_files(context, job_command);
     job_command->return_value = -1;
-    job_command->job_stat = RUNNING;
+    job_command->job_stat = (is_builtin) ? TERMINATED : RUNNING; 
     
     return;
 
@@ -178,12 +180,51 @@ static int job_complete(job_t *job) {
     int i;
 
     for (i = 0; i < job->job_cmd_counter; ++i) {
-        if (job->job_commands[i].return_value == -1) {
+        if (job->job_commands[i].job_stat != TERMINATED) {
             return 0;
         } 
     }
  
     return 1;
+}
+
+static int job_running(job_t *job) {
+    int i;
+
+    for (i = 0; i < job->job_cmd_counter; ++i) {
+        if (job->job_commands[i].job_stat == RUNNING) {
+            return 1;
+        } 
+    }
+ 
+    return 0;
+}
+
+int job_control_after_launch(job_t *job) {
+    int return_value;
+    
+    if (job == NULL || job->is_background) {
+        return -1; 
+    }
+
+    if (job->pgid == -1) {
+        return_value = job->job_commands[job->job_cmd_counter - 1].return_value;
+        cleanup_job(job);
+        return return_value;
+    }
+
+    tcsetpgrp(0, job->pgid);
+
+    foreground_job_wait(job);
+
+    if (job_complete(job)) {
+        return_value = job->job_commands[job->job_cmd_counter - 1].return_value;
+        cleanup_job(job);
+    }
+
+    tcsetpgrp(0, global_shell_pgid);
+
+    return return_value;
 }
 
 void foreground_job_wait(job_t *job) {
@@ -193,7 +234,7 @@ void foreground_job_wait(job_t *job) {
 
     child_status = 0;
     
-    while (!job_complete(job)) {
+    while (job_running(job)) {
         child_pid = waitpid(-job->pgid, &child_status, WUNTRACED);
 
         for (int j = 0; j < job->job_cmd_counter; ++j) {
@@ -210,27 +251,6 @@ void foreground_job_wait(job_t *job) {
     if (!job->is_background && WIFSIGNALED(child_status)) {
         printf("\n");
     }
-}
-
-int job_control_after_launch(job_t *job) {
-    int return_value;
-    
-    if (job == NULL || job->is_background) {
-        return -1; 
-    }
-
-    tcsetpgrp(0, job->pgid);
-
-    foreground_job_wait(job);
-
-    if (job_complete(job)) {
-        return_value = job->job_commands[job->job_cmd_counter - 1].return_value;
-        cleanup_job(job);
-    }
-
-    tcsetpgrp(0, global_shell_pgid);
-
-    return return_value;
 }
 
 void job_control_set_pgid(job_t *job, pid_t job_pgid) {
@@ -262,8 +282,7 @@ static void cleanup_job(job_t *job) {
     job_command_t *job_command;
     int i, j;
 
-    job->id = -1;
-
+    job->id = job->pgid = -1;
 
     for (i = 0; i < job->job_cmd_counter; ++i) {
         job_command = &job->job_commands[i];
