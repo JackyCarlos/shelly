@@ -262,17 +262,15 @@ void reap_background_jobs(void) {
     terminated_child = waitpid(-1, &child_status, WNOHANG);
 
     while (terminated_child > 0) {
-        printf("\rtrulala\r\n"); 
-        fflush(stdout);
-
         job_control_find_by_pid(terminated_child, &job, &job_command);
+
         job_command->return_value = WEXITSTATUS(child_status);
         job_command->job_stat = TERMINATED;
 
         terminated_child = waitpid(-1, &child_status, WNOHANG);
 
         if (job_complete(job)) {
-            printf("\r[%d] Done\r\n", job->id + 1);
+            printf("\r[%d]    done\r\n", job->id + 1);
             cleanup_job(job);
         }
     }
