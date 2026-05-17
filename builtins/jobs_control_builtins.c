@@ -5,75 +5,83 @@
 #include "../job-control/jobs.h"
 #include "../common/command_flags.h"
 
+static void print_job(job_t *job);
+static int print_command_group(job_t *job, int start_index);
+static void print_command(job_command_t *cmd);
+static int job_status_id(job_status status);
 static void print_redirects(job_command_t *job_command);
+static int job_status_id(job_status status);
 
 char *job_statuses[] = {"running", "suspended", "done"};
 
 int job_control_builtin_jobs(char **tokens) {
-    int i, j, job_id, job_stat_id, ongoing;
-    job_command_t *job_command;
-
-    job_stat_id = 0;
-    ongoing = 1;
+    int job_id;
 
     for (job_id = 0; job_id < job_list_size; ++job_id) {
-        i = 0;
-        
         if (job_list[job_id].id == -1 || !job_list[job_id].is_background) {
             continue;
         }
 
-        printf("[%d]  %s ", job_list[job_id].id + 1, " ");
-
-        for (i = 0; i < job_list[job_id].job_cmd_counter; ++i) {
-            job_command = &job_list[job_id].job_commands[i];
-            ongoing = 1;
-            j = 0;
-
-            if (job_command->job_stat != RUNNING) {
-                job_stat_id = (job_command->job_stat == STOPPED) ? 1 : 2;
-            }
-            
-            (i == 0) ? printf("") : printf("       ");
-            printf("%-11s", job_statuses[job_stat_id]);
-
-            while (ongoing) {
-                while (job_command->tokens[j] != NULL) {
-                    printf("%s ", job_command->tokens[j]);
-                    j++;
-                }
-
-                print_redirects(job_command);
-                
-                if (i + 1 < job_list[job_id].job_cmd_counter) {
-                    i++; 
-                    job_command = &job_list[job_id].job_commands[i];
-
-                    if (job_command->job_stat == RUNNING || job_command->job_stat == STOPPED) {
-                        i--;
-                        ongoing = 0;
-                        printf("\n");
-                    }
-                } else {
-                    printf("\n");
-                    ongoing = 0;
-                }
-
-                j = 0;
-            }
-
-
-
-
-
-
-
-
-        }
-
+        print_job(&job_list[job_id]);
     }
 
     return 0;
+}
+
+static void print_job(job_t *job) {
+    int i;
+
+    i = 0;
+    while (i < job->job_cmd_counter) {
+        i = print_command_group(job, i);
+    }
+}
+
+static int print_command_group(job_t *job, int start_index) {
+    int i, status_array_index;
+
+    i = start_index;
+
+    if (start_index == 0)
+        printf("[%d]    ", job->id + 1);
+    else
+        printf("       ");
+
+    status_array_index = job_status_id(job->job_commands[i].job_stat);
+    printf("%-11s", job_statuses[status_array_index]);
+
+    print_command(&job->job_commands[i]);
+    job_status current_status = job->job_commands[i].job_stat;
+    i++;
+
+    while (i < job->job_cmd_counter && job->job_commands[i].job_stat == current_status) {
+        print_command(&job->job_commands[i]);
+        i++;
+    }
+
+    printf("\n");
+
+    return i;
+}
+
+static void print_command(job_command_t *cmd) {
+    int i;
+
+    i = 0;
+    while (cmd->tokens[i] != NULL) {
+        printf("%s ", cmd->tokens[i]);
+        i++;
+    }
+
+    print_redirects(cmd);
+}
+
+static int job_status_id(job_status status) {
+    if (status == RUNNING)
+        return 0;
+    if (status == STOPPED)
+        return 1;
+    return 2;
 }
 
 static void print_redirects(job_command_t *job_command) {
