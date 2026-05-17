@@ -4,8 +4,9 @@ typedef struct execution_context execution_context_t;
 
 typedef enum {
     RUNNING = 1,
-    STOPPED,
-    TERMINATED
+    SUSPENDED,
+    TERMINATED,
+    FAILURE
 } job_status;
 
 typedef struct job_command {
