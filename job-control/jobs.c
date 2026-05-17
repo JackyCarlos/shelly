@@ -242,19 +242,28 @@ void foreground_job_wait(job_t *job) {
             job_command = &job->job_commands[j];
 
             if (job_command->pid == child_pid) {
-                job_command->return_value = WEXITSTATUS(child_status);
 
-                if (job_command->return_value == 127) {
-                    job_command->job_stat = FAILURE;
+                if (WIFSTOPPED(child_status)) {
+                    job_command->job_stat = SUSPENDED;
+                    job->is_background = 1;
                 } else {
-                    job_command->job_stat = TERMINATED;
+
+                    job_command->return_value = WEXITSTATUS(child_status);
+
+                    if (job_command->return_value == 127) {
+                        job_command->job_stat = FAILURE;
+                    } else {
+                        job_command->job_stat = TERMINATED;
+                    }
                 }
+
+
             }
         }
     }   
 
 
-    if (!job->is_background && WIFSIGNALED(child_status)) {
+    if (WIFSIGNALED(child_status)) {
         printf("\n");
     }
 }
