@@ -243,7 +243,12 @@ void foreground_job_wait(job_t *job) {
 
             if (job_command->pid == child_pid) {
                 job_command->return_value = WEXITSTATUS(child_status);
-                job_command->job_stat = TERMINATED;
+
+                if (job_command->return_value == 127) {
+                    job_command->job_stat = FAILURE;
+                } else {
+                    job_command->job_stat = TERMINATED;
+                }
             }
         }
     }   
@@ -265,7 +270,11 @@ void reap_background_jobs(void) {
         job_control_find_by_pid(terminated_child, &job, &job_command);
 
         job_command->return_value = WEXITSTATUS(child_status);
-        job_command->job_stat = TERMINATED;
+        if (job_command->return_value == 127) {
+            job_command->job_stat = FAILURE;
+        } else {
+            job_command->job_stat = TERMINATED;
+        }
 
         terminated_child = waitpid(-1, &child_status, WNOHANG);
 
