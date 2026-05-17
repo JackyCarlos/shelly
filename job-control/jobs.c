@@ -14,6 +14,7 @@ static void init_jobs(int start_index);
 static int job_complete(job_t *job);
 static int job_running(job_t *job);
 static void cleanup_job(job_t *job);
+static void job_control_find_by_pid(int child_pid, job_t **job_out, job_command_t **job_command_out);
 
 job_t *job_list;
 int job_list_size = 8;
@@ -250,6 +251,50 @@ void foreground_job_wait(job_t *job) {
 
     if (!job->is_background && WIFSIGNALED(child_status)) {
         printf("\n");
+    }
+}
+
+void reap_background_jobs(void) {
+    int terminated_child, child_status;
+    job_t *job;
+    job_command_t *job_command;
+
+    terminated_child = waitpid(-1, &child_status, WNOHANG);
+
+    while (terminated_child > 0) {
+        printf("\rtrulala\r\n"); 
+        fflush(stdout);
+
+        job_control_find_by_pid(terminated_child, &job, &job_command);
+        job_command->return_value = WEXITSTATUS(child_status);
+        job_command->job_stat = TERMINATED;
+
+        terminated_child = waitpid(-1, &child_status, WNOHANG);
+
+        if (job_complete(job)) {
+            printf("\r[%d] Done\r\n", job->id + 1);
+            cleanup_job(job);
+        }
+    }
+}
+
+static void job_control_find_by_pid(int child_pid, job_t **job_out, job_command_t **job_command_out) {
+    int i, j;
+    job_t *job;
+    job_command_t *job_command;
+
+    for (i = 0; i < job_list_size; ++i) {
+        job = &job_list[i];
+
+        for (j = 0; j < job->job_cmd_counter; ++j) {
+            job_command = &job->job_commands[j];
+
+            if (job_command->pid == child_pid) {
+                *job_out = job;
+                *job_command_out = job_command;
+                return;
+            }
+        }
     }
 }
 
