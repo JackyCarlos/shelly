@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include "builtins.h"
 #include "../job-control/jobs.h"
@@ -13,6 +14,36 @@ static void print_redirects(job_command_t *job_command);
 static int job_status_id(job_status status);
 
 char *job_statuses[] = {"running", "suspended", "done", "exit 127"};
+ 
+int job_control_builtin_fg(char **tokens) {
+    int job_id;
+    char *end_ptr;
+    job_t *job;
+    
+    if (tokens[1] == NULL || tokens[2] != NULL || *tokens[1] != '%') {
+        printf("fg: usage: fg %%<id>\n");
+        return -1;
+    }
+
+    job_id = strtol(tokens[1] + 1, &end_ptr, 10);
+    if (*end_ptr != '\0') {
+        printf("fg: usage: fg %%<id>\n");
+        return -1;
+    }
+
+    job_id--;
+
+    if (job_id >= job_list_size || job_list[job_id].id == -1 || !job_list[job_id].is_background) {
+        printf("fg: %%%d: no such job\n", job_id + 1);
+    }
+
+    return 0;
+}
+
+int job_control_builtin_bg(char **tokens) {
+    return 0;
+}
+
 
 int job_control_builtin_jobs(char **tokens) {
     int job_id;
