@@ -251,7 +251,6 @@ void foreground_job_wait(job_t *job) {
                     job_command->job_stat = SUSPENDED;
                     job->is_background = 1;
                 } else {
-
                     job_command->return_value = WEXITSTATUS(child_status);
 
                     if (job_command->return_value == 127) {
@@ -276,19 +275,26 @@ void reap_background_jobs(void) {
     job_t *job;
     job_command_t *job_command;
 
-    terminated_child = waitpid(-1, &child_status, WNOHANG);
+    terminated_child = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
 
     while (terminated_child > 0) {
         job_control_find_by_pid(terminated_child, &job, &job_command);
 
-        job_command->return_value = WEXITSTATUS(child_status);
-        if (job_command->return_value == 127) {
-            job_command->job_stat = FAILURE;
+        if (WIFSTOPPED(child_status)) {
+            job_command->job_stat = SUSPENDED;
+            job->is_background = 1;
         } else {
-            job_command->job_stat = TERMINATED;
+
+            job_command->return_value = WEXITSTATUS(child_status);
+
+            if (job_command->return_value == 127) {
+                job_command->job_stat = FAILURE;
+            } else {
+                job_command->job_stat = TERMINATED;
+            }
         }
 
-        terminated_child = waitpid(-1, &child_status, WNOHANG);
+        terminated_child = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
 
         if (job_complete(job)) {
             printf("\r[%d]    done\r\n", job->id + 1);
