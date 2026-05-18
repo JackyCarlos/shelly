@@ -204,7 +204,7 @@ static int job_running(job_t *job) {
 int job_control_after_launch(job_t *job) {
     int return_value;
     
-    if (job == NULL || job->is_background) {
+    if (job == NULL) {
         return -1; 
     }
 
@@ -212,6 +212,10 @@ int job_control_after_launch(job_t *job) {
         return_value = job->job_commands[job->job_cmd_counter - 1].return_value;
         cleanup_job(job);
         return return_value;
+    }
+
+    if (job->is_background) {
+        return -1;
     }
 
     tcsetpgrp(0, job->pgid);
@@ -261,7 +265,6 @@ void foreground_job_wait(job_t *job) {
             }
         }
     }   
-
 
     if (WIFSIGNALED(child_status)) {
         printf("\n");
@@ -367,6 +370,7 @@ static void cleanup_job(job_t *job) {
         free(job_command->tokens);
 
         job_command->return_value = -1;
+        job_command->pid = 0;
     }
     
     job->job_cmd_counter = 0;
