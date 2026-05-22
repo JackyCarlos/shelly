@@ -9,9 +9,9 @@
 static void print_job(job_t *job);
 static int print_command_group(job_t *job, int start_index);
 static void print_command(job_command_t *cmd);
-static int job_status_id(job_status status);
+static int job_status_id(job_cmd_status status);
 static void print_redirects(job_command_t *job_command);
-static int job_status_id(job_status status);
+static int job_status_id(job_cmd_status status);
 
 char *job_statuses[] = {"running", "suspended", "done", "exit 127"};
  
@@ -49,7 +49,7 @@ int job_control_builtin_jobs(char **tokens) {
     int job_id;
 
     for (job_id = 0; job_id < job_list_size; ++job_id) {
-        if (job_list[job_id].id == -1 || !job_list[job_id].is_background) {
+        if (job_list[job_id].id == -1 || job_list[job_id].pgid == -1 || !job_list[job_id].is_background) {
             continue;
         }
 
@@ -83,7 +83,7 @@ static int print_command_group(job_t *job, int start_index) {
     printf("%-11s", job_statuses[status_array_index]);
 
     print_command(&job->job_commands[i]);
-    job_status current_status = job->job_commands[i].job_stat;
+    job_cmd_status current_status = job->job_commands[i].job_stat;
     i++;
 
     while (i < job->job_cmd_counter && job->job_commands[i].job_stat == current_status) {
@@ -108,7 +108,7 @@ static void print_command(job_command_t *cmd) {
     print_redirects(cmd);
 }
 
-static int job_status_id(job_status status) {
+static int job_status_id(job_cmd_status status) {
     if (status == RUNNING)
         return 0;
     if (status == SUSPENDED)
