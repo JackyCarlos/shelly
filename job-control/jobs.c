@@ -41,11 +41,13 @@ static void init_jobs(int start_index) {
         j = start_index + i;
 
         job_list[j].id = -1;
+        job_list[j].pgid = -1;
+        job_list[j].status = TERMINATED;
+        job_list[j].is_background = 0;
+
         job_list[j].job_cmd_counter = 0;
         job_list[j].job_cmds_size = 8;
-        job_list[j].pgid = -1;
-
-        job_list[j].job_commands = malloc(job_list[i].job_cmds_size * sizeof(job_command_t));
+        job_list[j].job_commands = malloc(job_list[j].job_cmds_size * sizeof(job_command_t));
 
         if (job_list[j].job_commands == NULL) { goto alloc_err; }
     }
@@ -74,6 +76,8 @@ static int job_list_acquire_slot(void) {
 
     job_list_size += 8;
     job_list = realloc(job_list, job_list_size * sizeof(job_t));
+    // check if reallocation was successful
+
     job_list_index = i;
 
     init_jobs(i);
@@ -90,7 +94,6 @@ job_t *job_control_get_job(execution_context_t *context) {
 
     job = &job_list[job_id];
     job->id = job_id;
-    job->is_background = context->is_background;
     
     return job;
 }
@@ -112,7 +115,7 @@ void job_control_add_job_command(job_t *job, execution_context_t *context, int i
     copy_tokens(context, job_command);
     copy_io_files(context, job_command);
     job_command->return_value = -1;
-    job_command->job_stat = (is_builtin) ? TERMINATED : RUNNING; 
+    job_command->job_stat = (is_builtin) ? CMD_TERMINATED : CMD_RUNNING; 
     
     return;
 
@@ -181,7 +184,7 @@ static int job_complete(job_t *job) {
     int i;
 
     for (i = 0; i < job->job_cmd_counter; ++i) {
-        if (job->job_commands[i].job_stat != TERMINATED) {
+        if (job->job_commands[i].job_stat != CMD_TERMINATED) {
             return 0;
         } 
     }
@@ -193,7 +196,7 @@ static int job_running(job_t *job) {
     int i;
 
     for (i = 0; i < job->job_cmd_counter; ++i) {
-        if (job->job_commands[i].job_stat == RUNNING) {
+        if (job->job_commands[i].job_stat == CMD_RUNNING ) {
             return 1;
         } 
     }
@@ -202,6 +205,7 @@ static int job_running(job_t *job) {
 }
 
 int job_control_after_launch(job_t *job) {
+    int job_complete_val;
     int return_value;
     
     if (job == NULL) {
@@ -211,6 +215,7 @@ int job_control_after_launch(job_t *job) {
     if (job->pgid == -1) {
         return_value = job->job_commands[job->job_cmd_counter - 1].return_value;
         cleanup_job(job);
+
         return return_value;
     }
 
@@ -225,6 +230,11 @@ int job_control_after_launch(job_t *job) {
     if (job_complete(job)) {
         return_value = job->job_commands[job->job_cmd_counter - 1].return_value;
         cleanup_job(job);
+    } else {
+        if (!job_running(job)) {
+            job->status = SUSPENDED;
+            job->is_background = 1;
+        }
     }
 
     tcsetpgrp(0, global_shell_pgid);
@@ -248,15 +258,14 @@ void foreground_job_wait(job_t *job) {
             if (job_command->pid == child_pid) {
 
                 if (WIFSTOPPED(child_status)) {
-                    job_command->job_stat = SUSPENDED;
-                    job->is_background = 1;
+                    job_command->job_stat = CMD_SUSPENDED;
                 } else {
                     job_command->return_value = WEXITSTATUS(child_status);
 
                     if (job_command->return_value == 127) {
-                        job_command->job_stat = FAILURE;
+                        job_command->job_stat = CMD_FAILURE;
                     } else {
-                        job_command->job_stat = TERMINATED;
+                        job_command->job_stat = CMD_TERMINATED;
                     }
                 }
 
@@ -271,36 +280,42 @@ void foreground_job_wait(job_t *job) {
 }
 
 void reap_background_jobs(void) {
-    int terminated_child, child_status;
+    int child_to_reap, child_status;
     job_t *job;
     job_command_t *job_command;
 
-    terminated_child = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
+    child_to_reap = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
 
-    while (terminated_child > 0) {
-        job_control_find_by_pid(terminated_child, &job, &job_command);
+    while (child_to_reap > 0) {
+        job_control_find_by_pid(child_to_reap, &job, &job_command);
 
         if (WIFSTOPPED(child_status)) {
-            job_command->job_stat = SUSPENDED;
-            job->is_background = 1;
+            job_command->job_stat = CMD_SUSPENDED;
         } else {
 
             job_command->return_value = WEXITSTATUS(child_status);
 
             if (job_command->return_value == 127) {
-                job_command->job_stat = FAILURE;
+                job_command->job_stat = CMD_FAILURE;
             } else {
-                job_command->job_stat = TERMINATED;
+                job_command->job_stat = CMD_TERMINATED;
             }
         }
 
-        terminated_child = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
+        child_to_reap = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
 
         if (job_complete(job)) {
             printf("\r[%d]    done\r\n", job->id + 1);
             cleanup_job(job);
+        } else {
+            if (!job_running(job)) {
+                job->status = SUSPENDED;
+                job->is_background = 1;
+            }
         }
     }
+
+
 }
 
 static void job_control_find_by_pid(int child_pid, job_t **job_out, job_command_t **job_command_out) {
@@ -320,6 +335,7 @@ static void job_control_find_by_pid(int child_pid, job_t **job_out, job_command_
                 return;
             }
         }
+
     }
 }
 
@@ -336,8 +352,12 @@ void job_control_set_builtin_returnval(job_t *job, int builtin_return) {
     job->job_commands[job->job_cmd_counter - 1].return_value = builtin_return;
 }
 
-void job_control_register_background_job(job_t *job, int is_background) {
+void job_control_register_job(job_t *job, int is_background) {
+    job->status = RUNNING;
+    
     if (is_background) {
+        job->is_background = is_background;
+
         printf("[%d] ", job->id + 1);
 
         for (int i = 0; i < job->job_cmd_counter; ++i) {
@@ -345,7 +365,7 @@ void job_control_register_background_job(job_t *job, int is_background) {
         }
 
         printf("\n");
-    }        
+    }
 }
 
 static void cleanup_job(job_t *job) {
@@ -353,6 +373,8 @@ static void cleanup_job(job_t *job) {
     int i, j;
 
     job->id = job->pgid = -1;
+    job->status = TERMINATED;
+    job->is_background = 0;
 
     for (i = 0; i < job->job_cmd_counter; ++i) {
         job_command = &job->job_commands[i];
