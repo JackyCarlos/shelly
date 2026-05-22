@@ -49,11 +49,11 @@ job_t *executor(execution_context_t *context_list) {
             job_control_set_command_pid(job, child_pid);
         } else {
             builtin_return = launch_builtin(context_list, builtin_id, &prev_pipe_read);
-            job_control_set_builtin_returnval(job, builtin_return);      
+            job_control_set_builtin_returnval(job, builtin_return); 
         }
 
         if (context_list->pipeline_end) {
-            job_control_register_background_job(job, context_list->is_background);
+            job_control_register_job(job, context_list->is_background);
             job_pgid = 0;
         }
     
