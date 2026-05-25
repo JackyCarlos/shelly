@@ -50,6 +50,9 @@ int job_control_after_launch(job_t *job);
 void foreground_job_wait(job_t *job);
 void reap_background_jobs(void);
 
+int job_complete(job_t *job);
+int job_running(job_t *job);
+
 job_t *job_control_get_job(execution_context_t *context);
 void job_control_set_pgid(job_t *job, pid_t job_pgid);
 void job_control_set_command_pid(job_t *job, int pid);
