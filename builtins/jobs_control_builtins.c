@@ -7,6 +7,7 @@
 #include "../job-control/jobs.h"
 #include "../common/command_flags.h"
 
+static int get_jobid(char **);
 static void print_job(job_t *job);
 static int print_command_group(job_t *job, int start_index);
 static void print_command(job_command_t *cmd);
@@ -15,27 +16,14 @@ static void print_redirects(job_command_t *job_command);
 static int job_status_id(job_cmd_status status);
 
 char *job_statuses[] = {"running", "suspended", "done", "exit 127"};
- 
+
 int job_control_builtin_fg(char **tokens) {
     int job_id;
-    char *end_ptr;
     job_t *job;
-    
-    if (tokens[1] == NULL || tokens[2] != NULL || *tokens[1] != '%') {
-        printf("fg: usage: fg %%<id>\n");
-        return -1;
-    }
 
-    job_id = strtol(tokens[1] + 1, &end_ptr, 10);
-    if (*end_ptr != '\0') {
-        printf("fg: usage: fg %%<id>\n");
-        return -1;
-    }
+    job_id = get_jobid(tokens);
 
-    job_id--;
-
-    if (job_id >= job_list_size || job_list[job_id].id == -1 || !job_list[job_id].is_background) {
-        printf("fg: %%%d: no such job\n", job_id + 1);
+    if (job_id == -1) {
         return -1;
     }
 
@@ -55,6 +43,33 @@ int job_control_builtin_fg(char **tokens) {
     } 
 
     return job_control_after_launch(job);
+}
+
+static int get_jobid(char **tokens) {
+    int job_id;
+    char *end_ptr;
+    
+    if (tokens[1] == NULL || tokens[2] != NULL || *tokens[1] != '%') {
+        printf("fg: usage: fg %%<id>\n");
+        return -1;
+    }
+
+    job_id = strtol(tokens[1] + 1, &end_ptr, 10);
+    if (*end_ptr != '\0') {
+        printf("fg: usage: fg %%<id>\n");
+        return -1;
+    }
+
+    job_id--;
+
+    if (job_id >= job_list_size || job_id < 0 ||
+            job_list[job_id].id == -1 || !job_list[job_id].is_background) {
+
+        printf("fg: %%%d: no such job\n", job_id + 1);
+        return -1;
+    }
+
+    return job_id;
 }
 
 int job_control_builtin_bg(char **tokens) {
