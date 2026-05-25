@@ -11,10 +11,13 @@ static int job_list_acquire_slot(void);
 static void copy_tokens(execution_context_t *context, job_command_t *job);
 static void copy_io_files(execution_context_t *context, job_command_t *jobs);
 static void init_jobs(int start_index);
+static void cleanup_job(job_t *job);
+
 static int job_complete(job_t *job);
 static int job_running(job_t *job);
-static void cleanup_job(job_t *job);
+
 static void job_control_find_by_pid(int child_pid, job_t **job_out, job_command_t **job_command_out);
+static void update_job_command_status(int child_status, job_command_t *job_command);
 
 job_t *job_list;
 int job_list_size = 8;
@@ -180,36 +183,12 @@ static void copy_io_files(execution_context_t *context, job_command_t *job_comma
         exit(0);
 }
 
-static int job_complete(job_t *job) {
-    int i;
-
-    for (i = 0; i < job->job_cmd_counter; ++i) {
-        if (job->job_commands[i].job_stat != CMD_TERMINATED) {
-            return 0;
-        } 
-    }
- 
-    return 1;
-}
-
-static int job_running(job_t *job) {
-    int i;
-
-    for (i = 0; i < job->job_cmd_counter; ++i) {
-        if (job->job_commands[i].job_stat == CMD_RUNNING ) {
-            return 1;
-        } 
-    }
- 
-    return 0;
-}
-
 int job_control_after_launch(job_t *job) {
     int job_complete_val;
     int return_value;
     
     if (job == NULL) {
-        return -1; 
+        return -3; 
     }
 
     if (job->pgid == -1) {
@@ -231,6 +210,8 @@ int job_control_after_launch(job_t *job) {
         return_value = job->job_commands[job->job_cmd_counter - 1].return_value;
         cleanup_job(job);
     } else {
+        return_value = -2;
+
         if (!job_running(job)) {
             job->status = SUSPENDED;
             job->is_background = 1;
@@ -256,20 +237,7 @@ void foreground_job_wait(job_t *job) {
             job_command = &job->job_commands[j];
 
             if (job_command->pid == child_pid) {
-
-                if (WIFSTOPPED(child_status)) {
-                    job_command->job_stat = CMD_SUSPENDED;
-                } else {
-                    job_command->return_value = WEXITSTATUS(child_status);
-
-                    if (job_command->return_value == 127) {
-                        job_command->job_stat = CMD_FAILURE;
-                    } else {
-                        job_command->job_stat = CMD_TERMINATED;
-                    }
-                }
-
-
+                update_job_command_status(child_status, job_command);
             }
         }
     }   
@@ -289,18 +257,7 @@ void reap_background_jobs(void) {
     while (child_to_reap > 0) {
         job_control_find_by_pid(child_to_reap, &job, &job_command);
 
-        if (WIFSTOPPED(child_status)) {
-            job_command->job_stat = CMD_SUSPENDED;
-        } else {
-
-            job_command->return_value = WEXITSTATUS(child_status);
-
-            if (job_command->return_value == 127) {
-                job_command->job_stat = CMD_FAILURE;
-            } else {
-                job_command->job_stat = CMD_TERMINATED;
-            }
-        }
+        update_job_command_status(child_status, job_command);
 
         child_to_reap = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
 
@@ -316,6 +273,22 @@ void reap_background_jobs(void) {
     }
 
 
+}
+
+void job_control_register_job(job_t *job, int is_background) {
+    job->status = RUNNING;
+    
+    if (is_background) {
+        job->is_background = is_background;
+
+        printf("[%d] ", job->id + 1);
+
+        for (int i = 0; i < job->job_cmd_counter; ++i) {
+            printf("%d ", job->job_commands[i].pid);
+        }
+
+        printf("\n");
+    }
 }
 
 static void job_control_find_by_pid(int child_pid, job_t **job_out, job_command_t **job_command_out) {
@@ -339,33 +312,43 @@ static void job_control_find_by_pid(int child_pid, job_t **job_out, job_command_
     }
 }
 
-void job_control_set_pgid(job_t *job, pid_t job_pgid) {
-    job->pgid = job_pgid; 
-}
+static void update_job_command_status(int child_status, job_command_t *job_command) {
+    if (WIFSTOPPED(child_status)) {
+        job_command->job_stat = CMD_SUSPENDED;
+    } else {
 
-void job_control_set_command_pid(job_t *job, int pid) {
-    int job_cmd_index = job->job_cmd_counter - 1;
-    job->job_commands[job_cmd_index].pid = pid;   
-}
+        job_command->return_value = WEXITSTATUS(child_status);
 
-void job_control_set_builtin_returnval(job_t *job, int builtin_return) {
-    job->job_commands[job->job_cmd_counter - 1].return_value = builtin_return;
-}
-
-void job_control_register_job(job_t *job, int is_background) {
-    job->status = RUNNING;
-    
-    if (is_background) {
-        job->is_background = is_background;
-
-        printf("[%d] ", job->id + 1);
-
-        for (int i = 0; i < job->job_cmd_counter; ++i) {
-            printf("%d ", job->job_commands[i].pid);
+        if (job_command->return_value == 127) {
+            job_command->job_stat = CMD_FAILURE;
+        } else {
+            job_command->job_stat = CMD_TERMINATED;
         }
-
-        printf("\n");
     }
+}
+
+static int job_complete(job_t *job) {
+    int i;
+
+    for (i = 0; i < job->job_cmd_counter; ++i) {
+        if (job->job_commands[i].job_stat != CMD_TERMINATED) {
+            return 0;
+        } 
+    }
+ 
+    return 1;
+}
+
+static int job_running(job_t *job) {
+    int i;
+
+    for (i = 0; i < job->job_cmd_counter; ++i) {
+        if (job->job_commands[i].job_stat == CMD_RUNNING ) {
+            return 1;
+        } 
+    }
+ 
+    return 0;
 }
 
 static void cleanup_job(job_t *job) {
@@ -402,4 +385,17 @@ static void cleanup_job(job_t *job) {
     }
     
     job->job_cmd_counter = 0;
+}
+
+void job_control_set_pgid(job_t *job, pid_t job_pgid) {
+    job->pgid = job_pgid; 
+}
+
+void job_control_set_command_pid(job_t *job, int pid) {
+    int job_cmd_index = job->job_cmd_counter - 1;
+    job->job_commands[job_cmd_index].pid = pid;   
+}
+
+void job_control_set_builtin_returnval(job_t *job, int builtin_return) {
+    job->job_commands[job->job_cmd_counter - 1].return_value = builtin_return;
 }
