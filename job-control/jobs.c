@@ -13,9 +13,6 @@ static void copy_io_files(execution_context_t *context, job_command_t *jobs);
 static void init_jobs(int start_index);
 static void cleanup_job(job_t *job);
 
-static int job_complete(job_t *job);
-static int job_running(job_t *job);
-
 static void job_control_find_by_pid(int child_pid, job_t **job_out, job_command_t **job_command_out);
 static void update_job_command_status(int child_status, job_command_t *job_command);
 
@@ -327,7 +324,7 @@ static void update_job_command_status(int child_status, job_command_t *job_comma
     }
 }
 
-static int job_complete(job_t *job) {
+int job_complete(job_t *job) {
     int i;
 
     for (i = 0; i < job->job_cmd_counter; ++i) {
@@ -339,7 +336,7 @@ static int job_complete(job_t *job) {
     return 1;
 }
 
-static int job_running(job_t *job) {
+int job_running(job_t *job) {
     int i;
 
     for (i = 0; i < job->job_cmd_counter; ++i) {
