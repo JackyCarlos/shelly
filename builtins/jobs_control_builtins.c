@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "builtins.h"
 #include "../job-control/jobs.h"
@@ -35,15 +36,30 @@ int job_control_builtin_fg(char **tokens) {
 
     if (job_id >= job_list_size || job_list[job_id].id == -1 || !job_list[job_id].is_background) {
         printf("fg: %%%d: no such job\n", job_id + 1);
+        return -1;
     }
 
-    return 0;
+    job = &job_list[job_id];
+    job->is_background = 0;
+
+    if (job->status == SUSPENDED) {
+        for (int i = 0; i < job->job_cmd_counter; ++i) {
+            if (job->job_commands[i].job_stat == CMD_SUSPENDED) {
+                job->job_commands[i].job_stat = CMD_RUNNING;
+            }
+        }
+
+        if (kill(-job->pgid, SIGCONT) == -1) {
+            fprintf(stderr, "error continuing job %d\n", job_id);
+        }
+    } 
+
+    return job_control_after_launch(job);
 }
 
 int job_control_builtin_bg(char **tokens) {
     return 0;
 }
-
 
 int job_control_builtin_jobs(char **tokens) {
     int job_id;
