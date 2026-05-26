@@ -98,7 +98,7 @@ static char *cli_line(void) {
     user = getlogin();
     gethostname(hostname, sizeof(hostname));
 
-    sprintf(cli_line_string, "%s@%s %s $ ", (user != NULL ? user : ""), hostname, cwd);
+    sprintf(cli_line_string, "\033[0;31m%s@%s\033[0m \033[0;34m%s\033[0m $ ", (user != NULL ? user : ""), hostname, cwd);
 
     free(cwd);
     
