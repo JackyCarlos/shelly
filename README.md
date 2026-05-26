@@ -1,4 +1,4 @@
-# shelly
+# 🐚$ shelly
 An easy, very basic shell implementation for learning linux operating system principles. Besides command execution shelly supports the following features:
 - redirection operators like `>`, `>>` and `<`
 - chaining commands with pipelining `|`
