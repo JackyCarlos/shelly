@@ -260,7 +260,7 @@ void reap_background_jobs(void) {
         child_to_reap = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
 
         if (job_complete(job)) {
-            printf("\r[%d]    done\r\n", job->id + 1);
+            job_display_print_job(job);
             cleanup_job(job);
         } else {
             if (!job_running(job)) {
@@ -323,7 +323,7 @@ int job_complete(job_t *job) {
     int i;
 
     for (i = 0; i < job->job_cmd_counter; ++i) {
-        if (job->job_commands[i].job_stat != CMD_TERMINATED) {
+        if (job->job_commands[i].job_stat != CMD_TERMINATED && job->job_commands[i].job_stat != CMD_FAILURE) {
             return 0;
         } 
     }
