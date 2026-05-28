@@ -32,6 +32,16 @@ void job_display_print_bg(job_t *job)
         i = print_command_group(job, i, JOB_DISPLAY_BG);
 }
 
+void job_display_print_ctrlz(job_t *job) {
+    int i = 0;
+
+    printf("\n");
+
+    while (i < job->job_cmd_counter) {
+        i = print_command_group(job, i, JOB_DISPLAY_CTRLZ);  
+    } 
+}
+
 void job_display_print_background_start(job_t *job)
 {
     int i;
@@ -49,11 +59,13 @@ static int print_command_group(job_t *job, int start_index, job_display_mode_t m
     int i = start_index;
     job_cmd_status current_status;
 
-    if (mode != JOB_DISPLAY_NOTIFICATION) {
+    if (mode != JOB_DISPLAY_CTRLZ) {
         if (start_index == 0)
             printf("[%d]    ", job->id + 1);
         else
             printf("       ");
+    } else {
+        printf("shelly: ");
     }
 
     current_status = job->job_commands[i].job_stat;
