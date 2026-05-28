@@ -28,7 +28,6 @@ int job_control_builtin_fg(char **tokens) {
 
     if (job->status == SUSPENDED) {
         job_mark_running(job);
-        job->status = RUNNING;
 
         if (kill(-job->pgid, SIGCONT) == -1) {
             fprintf(stderr, "error continuing job %d\n", job_id);
@@ -61,8 +60,6 @@ int job_control_builtin_bg(char **tokens) {
 
     job_display_print_bg(job);
     job_mark_running(job);
-
-    job->status = RUNNING;
 
     return 0;
 }
@@ -100,6 +97,8 @@ static void job_mark_running(job_t *job) {
             job->job_commands[i].job_stat = CMD_RUNNING;
         }
     }    
+
+    job->status = RUNNING;
 }
 
 int job_control_builtin_jobs(char **tokens) {
