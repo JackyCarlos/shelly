@@ -1,5 +1,3 @@
-/* job-display.h */
-
 typedef struct job job_t;
 
 typedef enum job_display_mode {
