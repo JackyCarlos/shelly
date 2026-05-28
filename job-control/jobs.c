@@ -217,6 +217,8 @@ int job_control_after_launch(job_t *job) {
         if (!job_running(job)) {
             job->status = SUSPENDED;
             job->is_background = 1;
+
+            job_display_print_ctrlz(job);
         }
     }
 
