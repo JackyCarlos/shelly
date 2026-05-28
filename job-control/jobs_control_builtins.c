@@ -3,20 +3,13 @@
 #include <stdlib.h>
 #include <signal.h>
 
+#include "../common/command_flags.h"
 #include "../builtins/builtins.h"
 #include "jobs.h"
-#include "../common/command_flags.h"
+#include "job-display/job-display.h"
 
 static int get_jobid(char **, char *);
 static void job_mark_running(job_t *job);
-static void print_job(job_t *job);
-static int print_command_group(job_t *job, int start_index);
-static void print_command(job_command_t *cmd);
-static int job_status_id(job_cmd_status status);
-static void print_redirects(job_command_t *job_command);
-static int job_status_id(job_cmd_status status);
-
-char *job_statuses[] = {"running", "suspended", "done", "exit 127"};
 
 int job_control_builtin_fg(char **tokens) {
     int job_id;
@@ -31,13 +24,16 @@ int job_control_builtin_fg(char **tokens) {
     job = &job_list[job_id];
     job->is_background = 0;
 
+    job_display_print_fg(job);
+
     if (job->status == SUSPENDED) {
         job_mark_running(job);
+        job->status = RUNNING;
 
         if (kill(-job->pgid, SIGCONT) == -1) {
             fprintf(stderr, "error continuing job %d\n", job_id);
         }
-    } 
+    }
 
     return job_control_after_launch(job);
 }
@@ -59,11 +55,12 @@ int job_control_builtin_bg(char **tokens) {
         return -1;
     }
 
-    job_mark_running(job);
-
     if (kill(-job->pgid, SIGCONT) == -1) {
         fprintf(stderr, "error continuing job %d\n", job_id);
     }
+
+    job_display_print_bg(job);
+    job_mark_running(job);
 
     job->status = RUNNING;
 
@@ -105,7 +102,6 @@ static void job_mark_running(job_t *job) {
     }    
 }
 
-
 int job_control_builtin_jobs(char **tokens) {
     int job_id;
 
@@ -114,85 +110,8 @@ int job_control_builtin_jobs(char **tokens) {
             continue;
         }
 
-        print_job(&job_list[job_id]);
+        job_display_print_job(&job_list[job_id]);
     }
 
     return 0;
-}
-
-static void print_job(job_t *job) {
-    int i;
-
-    i = 0;
-    while (i < job->job_cmd_counter) {
-        i = print_command_group(job, i);
-    }
-}
-
-static int print_command_group(job_t *job, int start_index) {
-    int i, status_array_index;
-
-    i = start_index;
-
-    if (start_index == 0)
-        printf("[%d]    ", job->id + 1);
-    else
-        printf("       ");
-
-    status_array_index = job_status_id(job->job_commands[i].job_stat);
-
-    printf("%-11s", job_statuses[status_array_index]);
-
-    print_command(&job->job_commands[i]);
-    job_cmd_status current_status = job->job_commands[i].job_stat;
-    i++;
-
-    while (i < job->job_cmd_counter && job->job_commands[i].job_stat == current_status) {
-        print_command(&job->job_commands[i]);
-        i++;
-    }
-
-    printf("\n");
-
-    return i;
-}
-
-static void print_command(job_command_t *cmd) {
-    int i;
-
-    i = 0;
-    while (cmd->tokens[i] != NULL) {
-        printf("%s ", cmd->tokens[i]);
-        i++;
-    }
-
-    print_redirects(cmd);
-}
-
-static int job_status_id(job_cmd_status status) {
-    if (status == RUNNING)
-        return 0;
-    if (status == SUSPENDED)
-        return 1;
-    if (status == TERMINATED)
-        return 2;
-    return 3;
-}
-
-static void print_redirects(job_command_t *job_command) {
-    if ((job_command->flags & REDIR_IN ) == REDIR_IN) {
-        printf("< %s ", job_command->input_file);
-    }
-
-    if ((job_command->flags & REDIR_OUT ) == REDIR_OUT) {
-        printf("> %s ", job_command->output_file);
-    }
-
-    if ((job_command->flags & REDIR_APPEND) == REDIR_APPEND) {
-        printf(">> %s ", job_command->append_file);
-    }
-
-    if ((job_command->flags & REDIR_INTO_PIPE) == REDIR_INTO_PIPE) {
-        printf("| ");
-    }
 }
