@@ -4,8 +4,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "jobs.h"
 #include "../parser/parser.h"
+#include "jobs.h"
+#include "job-display/job-display.h"
 
 static int job_list_acquire_slot(void);
 static void copy_tokens(execution_context_t *context, job_command_t *job);
@@ -278,13 +279,7 @@ void job_control_register_job(job_t *job, int is_background) {
     if (is_background) {
         job->is_background = is_background;
 
-        printf("[%d] ", job->id + 1);
-
-        for (int i = 0; i < job->job_cmd_counter; ++i) {
-            printf("%d ", job->job_commands[i].pid);
-        }
-
-        printf("\n");
+        job_display_print_background_start(job);
     }
 }
 
