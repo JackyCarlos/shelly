@@ -1,3 +1,5 @@
+#include <sys/types.h>
+
 #include "../common/command_flags.h"
 
 typedef struct execution_context execution_context_t;
