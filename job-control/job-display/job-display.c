@@ -32,14 +32,6 @@ void job_display_print_bg(job_t *job)
         i = print_command_group(job, i, JOB_DISPLAY_BG);
 }
 
-void job_display_print_status_notification(job_t *job)
-{
-    int i = 0;
-
-    while (i < job->job_cmd_counter)
-        i = print_command_group(job, i, JOB_DISPLAY_NOTIFICATION);
-}
-
 void job_display_print_background_start(job_t *job)
 {
     int i;
@@ -104,7 +96,7 @@ static char *status_label(job_cmd_status status, job_display_mode_t mode)
     if (status == TERMINATED)
         return "done";
 
-    return "exit";
+    return "exit 127";
 }
 
 static void print_command(job_command_t *cmd)
