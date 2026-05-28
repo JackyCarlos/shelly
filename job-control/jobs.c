@@ -17,6 +17,8 @@ static void cleanup_job(job_t *job);
 static void job_control_find_by_pid(int child_pid, job_t **job_out, job_command_t **job_command_out);
 static void update_job_command_status(int child_status, job_command_t *job_command);
 
+void termination_cleanup(void); 
+
 job_t *job_list;
 int job_list_size = 8;
 static int job_list_index = -1;
@@ -27,6 +29,8 @@ void init_job_control(void) {
     if (job_list == NULL) { goto alloc_err; }
 
     init_jobs(0);
+
+    atexit(termination_cleanup);
 
     return;
 
@@ -377,6 +381,25 @@ static void cleanup_job(job_t *job) {
     }
     
     job->job_cmd_counter = 0;
+}
+
+void termination_cleanup(void) {
+    int i;
+    job_t *job;
+    
+    for (i = 0; i < job_list_size; ++i) {
+        job = &job_list[i];
+
+        if (job->id == -1 || job->pgid == -1) continue;
+
+        if (kill(-job->pgid, SIGHUP) == -1) {
+            fprintf(stderr, "error sending SIGHUP to pgid %d\n", job->pgid);
+        }
+
+        if (kill(-job->pgid, SIGCONT) == -1) {
+            fprintf(stderr, "error sending SIGCONT to pgid %d\n", job->pgid);
+        }
+    }    
 }
 
 void job_control_set_pgid(job_t *job, pid_t job_pgid) {
