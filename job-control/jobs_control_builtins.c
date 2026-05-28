@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include "builtins.h"
-#include "../job-control/jobs.h"
+#include "../builtins/builtins.h"
+#include "jobs.h"
 #include "../common/command_flags.h"
 
 static int get_jobid(char **, char *);

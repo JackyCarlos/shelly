@@ -23,7 +23,7 @@ SRC_EXECUTOR = \
 
 SRC_JOB_CTRL = \
 	job-control/jobs.c \
-	builtins/jobs_control_builtins.c
+	job-control/jobs_control_builtins.c
 
 SRC_LN_INPUT = \
 	input/input.c
