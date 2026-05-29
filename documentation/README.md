@@ -1,4 +1,3 @@
-````md
 ```math
 W := [a\text{-}z0\text{-}9]^+
 ```
@@ -22,4 +21,3 @@ R :=
 \right)
 + \varepsilon
 ```
-````
