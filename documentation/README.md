@@ -1,23 +1,11 @@
-```math
-W := [a\text{-}z0\text{-}9]^+
-```
+# shelly - a definetely not POSIX compliant shell 
+This shell is a fun project for learning some linux operating system principles - mostly about processes, process groups and signaling. 
 
-```math
-U := \bigl((<W) + (>W) + (>>W)\bigr)^*
-```
+### Motivation
+When looking for something to program I stumbled accross the blog entry of Stephen Brennan. In the entry he presents a very basic shell which is capable of printing a small cli, executing typed commands and wait for the spawned process termination. After reprogramming the shell I decided to extend it and transf
 
-```math
-C := W W^*
-```
 
-```math
-R :=
-\left(
-  \left(
-    C U (\texttt{|} + \&)
-  \right)^*
-  C U
-  (\& + \varepsilon)
-\right)
-+ \varepsilon
-```
+After It lacks features like redirecting in- or output and piping  
+
+
+(https://brennan.io/2015/01/16/write-a-shell-in-c/). 
