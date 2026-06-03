@@ -6,15 +6,18 @@ When looking for something to program I stumbled accross the [blog entry](https:
 
 
 ## General overview 
-In general shelly repeatedly does the following: It reads input from the command line, parses the input, executes commands and puts commands in the fore- or background of the terminal. Each iteration is divided into seven stages: 
+In general shelly repeatedly does the following: It reads input from the command line, parses the input, executes commands and puts commands in the fore- or background of the terminal. Each iteration is divided into five stages: 
 
-1. input stage. shelly reads bytes via [linenoise](https://github.com/antirez/linenoise) and returns bytes to the main loop. In this stage some signal handling is also performed. 
-2. tokenizing stage. The read input is splitted into tokens which have a certain token type
+1. input stage. shelly reads input via [linenoise](https://github.com/antirez/linenoise) and returns bytes to the main loop. In this stage some signal handling is also performed. 
+2. tokenizing stage. The read input is splitted into tokens which have a certain token type. 
 3. contexting stage. The list of previously created tokens is translated into execution contexts. Here the syntax of the input is checked. 
 4. execution stage. shelly launches all provided commands and handles input/output redirection as well as pipelining. Along the way executed commands are turned into jobs. 
-5. job control stage. The started jobs are finally delivered to the job control. shelly waits for jobs to finish independent wether they are in fore or background.
+5. job control stage. The started jobs are finally delivered to the job control. shelly waits for jobs to finish independent wether they are in fore- or background.
 
 In the following we are going to have a closer look at each stage. 
+
+## Input stage
+In its first 
 
 
 
