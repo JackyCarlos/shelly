@@ -17,11 +17,30 @@ In general shelly repeatedly does the following: It reads input from the command
 In the following we are going to have a closer look at each stage. 
 
 ## Input stage
-On each iteration shelly prints a colorful cli string consisting of the username, the host name and the current working directory. From there it waits for input. In the tutorial I followed in the beginning the classic `getchar` function from the standard IO library was used to read input. The downside with this approach is the fact that `getchar` simply does not have built-in mechanisms to handle asynchronous events like signals, which interrupt the underlying `read` system call the function is using. So I first switched to using the raw `read` system call realizing soon that this solution was not suitable either. Since I wanted some features like reprinting the already typed in characters before handling them in my own code I decided to switch to already existing ways of handling input. Here my first choice was the `readline` function which I could not make friends with. With linenoise I finally found a library to handle signals and print as well as reprint strings in the terminal. Inside my own function `shelly_linenoise` linenoise library functions are called to read lines and return them without the trailing `\n` byte at the end. Additionally an `error` value is set for each call to the function. In case the user hits `CTRL + C` the error is set to indicate the occurence of the `SIGINT` signal so shelly discards the read input, prints a fresh cli line and calls `shelly_linenoise` again. In case the user hits `CTRL + D` (which writes `EOF` to stdin) and no input has been read the error is set to indicate the will to terminate shelly - shelly then prints exit and terminates. Finally if everything goes well `shelly_linenoise` just returns a `char *` ready to be processed in the next stage. To inform users about finished background jobs the function also handles occurences of the `SIGCHLD` signal and calls a job control api function. This is further discussed in the job control section.  
-
+On each iteration shelly prints a colorful cli string consisting of the username, the host name and the current working directory. From there it waits for input. In the tutorial I followed in the beginning the classic `getchar` function from the standard IO library was used to read input. The downside with this approach is the fact that `getchar` simply does not have built-in mechanisms to handle asynchronous events like signals, which interrupt the underlying `read` system call the function is using. So I first switched to using the raw `read` system call realizing soon that this solution was not suitable either. Since I wanted some features like reprinting the already typed in characters before handling them in my own code I decided to switch to already existing ways of handling input. Here my first choice was the `readline` function which I could not make friends with. With linenoise I finally found a library to handle signals and print as well as reprint strings in the terminal. Inside my own function `shelly_linenoise` linenoise library functions are called to read lines and return them without the trailing `\n` byte at the end. Additionally an `error` value is set for each call to the function. In case the user hits `CTRL + C` the error is set to indicate the occurence of the `SIGINT` signal so shelly discards the read input, prints a fresh cli line and calls `shelly_linenoise` again. In case the user hits `CTRL + D` (which writes `EOF` to stdin) and no input has been read the error is set to indicate the will to terminate shelly - shelly then prints exit and terminates. Finally if everything goes well `shelly_linenoise` just returns a `char *` ready to be processed in the next stage. To inform users about finished background jobs the function also handles occurences of the `SIGCHLD` signal and calls a job control api function. This is further described in the job control section.  
 
 ## Tokenizing stage 
+The task of the tokenizer is to analyze the lexical structure of the input and turn a raw stream of characters into a list of tokens. This facilitates the job of the parser in the next stage so it does not have to deal with single characters but rather symbols of the language we want to parse. The possible token types 
 
+
+ Let's have a look at an example. 
+
+```
+
+```
+
+
+
+
+
+
+one could ask why this stage is necessary. 
+
+
+but rather work with symbols of the language
+
+
+## Contexting stage or parsing stage
 
 
 
