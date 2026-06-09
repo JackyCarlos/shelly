@@ -59,24 +59,32 @@ typedef struct {
 ```
 
 Only `WORD` tokens need the `str` field of the `token_t` struct. For a token of this kind the tokenizer copies input characters to the memory area `str` points to until it encounters a new token or a space like byte. For the other token types the characters which make up the token are not needed and are discarded. The pure existence of the token is enough information for the next stage.
-The tokenizer is implemented over the function `token_t *tokenizer(char *line)` which receives the raw input line and returns an arry of `token_t` structs.
+The tokenizer is implemented over the function `token_t *tokenizer(char *line)` which receives the raw input line and returns a pointer to the list of `token_t` structs. The last token in the list has a `token_type` of NULL which marks the end of the list.
 
 ## Contexting stage or parsing stage
 
-regular language:
+not all input make correct commands
+
+This stage has two main goals. First every input the user provides must be checked wether it makes up a valid shell command according to the features shelly supports. In other words: It must be checked wether it follows the syntax of the language shelly works with. Since I wasn't interrested in implementing features like subshells (`$(..)`) or higher level control structures like if statements or for/while loops, a regular language was fine for my needs. The following grammar in 'Extended Backus Naur Form' (EBNF) defines the language of shelly:
 
 ```
-word          = [a-z0-9]+
+word          = [a-zA-Z0-9]+
 
-redirect      = "<" word | ">"  word | ">>" word
+redirect_op   = "<" | ">" | ">>"
+redirect      = redirect_op word
 
-redirects     = redirect*
+command_name  = word
+argument      = word
 
-command       = word+
+command       = command_name (argument | redirect)*
 
 pipeline_op   = "|" | "&"
 
-pipeline      = command redirects (pipeline_op command redirects) "&"?
+pipeline      = command (pipeline_op command)* "&"?
 
 input         = pipeline | ε
 ```
+
+Elements of the language the grammar defines follow the classic shell syntax every POSIX compliant shell supports. For shelly a command is made up of at least one word and may include an arbitrary amount of parameters and redirect operators followed by a filename in any order. Commands may be connected via pipelines and may have a trailing ampersand. In case the input is not a
+
+executor needs to know which binary or shell builtin to run, which files to open for redirection operations, where to put the output of commands e.g. let the ran binaries print their output to the terminal or redirect it to the input stream of another program.
