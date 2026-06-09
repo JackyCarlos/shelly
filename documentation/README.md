@@ -29,16 +29,16 @@ The task of the tokenizer is to analyze the lexical structure of the input and t
 ```
 WORD("cmd")
 WORD("param")
-REDIRECT_IN("<")
+REDIRECT_IN
 WORD("input")
-REDIRECT_OUT(">")
+REDIRECT_OUT
 WORD("output")
-PIPE("|")
+PIPE
 WORD("cmd2")
-AMPSAND("&")
+AMPERSAND
 ```
 
-The result would be the same when the input would look like `cmd param<      input >output|cmd2&`. The tokenizer strips all space like bytes. In my code I created two data types to represent a token. `token_type` is an enum with members representing the single tokens. A `token_type` variable is used inside of the `token_t` struct which represents an actual token. Only `WORD` tokens need the `str` field of the `token_t` struct. For a token of this kind the tokenizer copies input characters to the memory area `str` points to until it encounters a new token or a space like byte. For the other token types the characters which make up the token are no longer needed and can be discarded. The pure existence of the token is enough information for the next stage.
+The tokenizer strips all space like bytes. In my code I created two data types to represent a token. `token_type` is an enum with members representing the single tokens. A `token_type` variable is used inside of the `token_t` struct which represents an actual token.
 
 ```
 typedef enum {
@@ -57,6 +57,9 @@ typedef struct {
     int index;
 } token_t;
 ```
+
+Only `WORD` tokens need the `str` field of the `token_t` struct. For a token of this kind the tokenizer copies input characters to the memory area `str` points to until it encounters a new token or a space like byte. For the other token types the characters which make up the token are not needed and are discarded. The pure existence of the token is enough information for the next stage.
+The tokenizer is implemented over the function `token_t *tokenizer(char *line)` which receives the raw input line and returns an arry of `token_t` structs
 
 ## Contexting stage or parsing stage
 
