@@ -63,7 +63,7 @@ The tokenizer is implemented over the function `token_t *tokenizer(char *line)` 
 
 ## Contexting stage or parsing stage
 
-This stage has two main goals. First every input the user provides must be checked wether it makes up a valid shell command according to the features shelly supports. In other words: It must be checked wether it follows the syntax of the language shelly works with. Since I wasn't interrested in implementing features like subshells (`$(..)`) or higher level control structures like if statements or for/while loops, a regular language was fine for my needs. The following grammar in 'Extended Backus Naur Form' (EBNF) defines the language $L_{shelly}$:
+This stage has two main goals. First every input the user provides must be checked wether it makes up a valid shell command according to the features shelly supports. In other words: It must be checked wether it follows the syntax of the language shelly works with. Since I wasn't interrested in implementing features like subshells (`$(..)`) or higher level control structures like if statements or for/while loops, a regular language was fine for my needs. The following grammar in 'Extended Backus Naur Form' (EBNF) defines the language $L$:
 
 ```
 word          = [a-zA-Z0-9]+
@@ -83,6 +83,6 @@ pipeline      = command (pipeline_op command)* "&"?
 input         = pipeline | ε
 ```
 
-Elements of $L_{shelly}$ follow the classic shell syntax every POSIX compliant shell supports. For shelly a command is made up of at least one word and may include an arbitrary amount of parameters and redirection operators followed by a filename in any order. Commands may be connected via pipelines and may have a trailing ampersand. In case the input is not element of $L_{shelly}$, shelly informs the user by printing a `syntax error` message. It then performs a cleanup and initiates a fresh iteration of shelly. The second goal of this stage is to turn the token list from the last stage into execution information the next stage operates on. It therefore interpretes the tokens and groups together all information each command is made of into so called execution contexts. One could say an execution context is the static semantics of a command.
+Elements of $L$ follow the classic shell syntax every POSIX compliant shell supports. For shelly a command is made up of at least one word and may include an arbitrary amount of parameters and redirection operators followed by a filename in any order. Commands may be connected via pipelines and may have a trailing ampersand. In case the input is not element of $L$, shelly informs the user, performs a cleanup and initiates a fresh iteration of shelly. The second goal of this stage is to turn the token list from the last stage into execution information the next stage operates on. It therefore interpretes the tokens and groups together all information each command is made of into so called execution contexts. One could say an execution context is the static semantics of a command.
 
 executor needs to know which binary or shell builtin to run, which files to open for redirection operations, where to put the output of commands e.g. let the ran binaries print their output to the terminal or redirect it to the input stream of another program.
