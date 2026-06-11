@@ -61,7 +61,7 @@ typedef struct execution_context {
     char **tokens;
     int argc;
 
-    redirect_flags flags;
+    int flags;
     char *input_file;
     char *output_file;
     char *append_file;
