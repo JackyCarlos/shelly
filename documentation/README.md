@@ -140,6 +140,62 @@ typedef enum {
 
 This parser or contexter is available under the function `execution_context_t *get_context(token_t *)`. It turns a list of tokens into a list of execution contexts. In case there is a syntax error the function returns `NULL`. With this stage done shelly is ready to run the commands.
 
-## execution stage
+## Execution stage
 
-This stages' task is to turn execution contexts into running processes and hand over information of the started processes to the job control. It is important to point out that the stage for starting processes is separated from the tracking of these processes. This separation of concerns is meaningful. At the time the execution stage starts a process it is not able to predict anything about the lifetime of the process. A started process may exit immediately after doing its thing. It may run in the foreground for some time and the user may decide to put it in the background or suspend it. The execution stage within the shelly main loop should not be responsible for keeping track of the status of the started processes and simply deal with launching them according to the information of the execution context list. This way the data of the control flow of the main loop can stay clean. The data of the previous stages e.g. the read line, the token list and the list of execution contexts are only of interest for the current iteration of the main loop. They should therefore be cleaned up after completing an iteration. This way the main loop can start a fresh clean iteration not bothering of what happened to the started processes and their corresponding data. Keeping the execution context list as a reference to running processes in following iterations of the main loop would introduce a complicated cleanup and tracking logic. This stems from the fact that the list of contexts simply is not an appropriate data structure to manage possible togetherness of processes. Imagine running `cmd1 | cmd2 & cmd3` with `cmd1` and `cmd3` exiting immediatly leaving only `cmd2` running in the background. Now it would not be possible to clean up the context list since `cmd2` is still running although `cmd3` is finished and has nothing to do with `cmd1` and `cmd2`. One would be forced to keep the context list over the course of possibly multiple upcomming iterations of the shelly main loop. Hence it is smarter to group `cmd1 | cmd2` and `cmd3` into separate jobs, start the commands and hand the jobs to the job control. After starting the processes the execution stage can simply forget about the processes it justed started. The starting of processes is done via the `executor` function which makes use of API functions of the job control. Although the job control is a separate stage discussed later on we need to take a look at the job data structure and some functions of the job control right now.
+This stages' task is to turn execution contexts into running processes and hand over information of the started processes to the job control. It is important to point out that the stage for starting processes is separated from the tracking of these processes. This separation of concerns is meaningful. At the time the execution stage starts a process it is not able to predict anything about the lifetime of the process. A started process may exit immediately after doing its thing. It may run in the foreground for some time and the user may decide to put it in the background or suspend it. The execution stage within the shelly main loop should not be responsible for keeping track of the status of the started processes and simply deal with launching them according to the information of the execution context list. This way the data of the control flow of the main loop can stay clean. The data of the previous stages e.g. the read line, the token list and the list of execution contexts are only of interest for the current iteration of the main loop. They should therefore be cleaned up after completing an iteration. This way the main loop can start a fresh clean iteration not bothering of what happened to the started processes and their corresponding data. Keeping the execution context list as a reference to running processes in following iterations of the main loop would introduce a complicated cleanup and tracking logic. This stems from the fact that the list of contexts simply is not an appropriate data structure to manage possible togetherness of processes. Imagine running `cmd1 | cmd2 & cmd3` with `cmd1` and `cmd3` exiting immediatly leaving only `cmd2` running in the background. Now it would not be possible to clean up the context list since `cmd2` is still running although `cmd3` is finished and has nothing to do with `cmd1` and `cmd2`. One would be forced to keep the context list over the course of possibly multiple upcomming iterations of the shelly main loop. Hence it is smarter to group `cmd1 | cmd2` and `cmd3` into separate jobs, start the commands and hand the jobs to the job control. After starting the processes the execution stage can simply forget about the processes it justed started. The starting of processes is done via the `executor` function which makes use of API functions of the job control. Although the job control is a separate stage we first need to take a look at some job control data structures.
+
+### `job_t` and `job_command` data structures
+
+```c
+typedef struct job {
+    int id;
+    int pgid;
+    int is_background;
+    job_status status;
+
+    int job_cmd_counter;
+    job_command_t *job_commands;
+    int job_cmds_size;
+} job_t;
+```
+
+This struct holds the following information:
+
+- `int id`: The id of the job inside the job list.
+- `int pgid`: The id of the process group of the job (to be discussed later in this chapter).
+- `int is_background`: Flag indicating wether the job is run in the fore- or background of the terminal.
+- `job_status status`: Enum value representing the status of the job. Possible values include `RUNNING`, `SUSPENDED` and `TERMINATED`.
+
+Each job is made up of one or more commands. These commands are called job-commands and reside inside the `job_command_t *job_commands` list. The remaining two variables hold information about the size and the capacity of the list. The `job_command_t` structs is very similar to the execution context struct. It simply adds variables to hold information about the execution information of the command:
+
+```c
+typedef struct job_command {
+    char **tokens;
+    int argc;
+
+    redirect_flags flags;
+    char *input_file;
+    char *output_file;
+    char *append_file;
+
+    int pid;
+    job_cmd_status job_stat;
+    int return_value;
+} job_command_t;
+```
+
+- `int pid`: Holds the pid of the process.
+- `job_cmd_status`: Enum value representing the status of a process. Possible values include `CMD_FAILURE`, `CMD_SUSPENDED`, `CMD_TERMINATED` and `CMD_FAILURE`.
+- `int return_value`: The exit value of the process in case it terminates.
+
+Now we can understand the `executor`
+
+### `executor` functionality
+
+The `executor` function iterates over the list of `execution_context_t` structs it receives as an argument. It first calls the job control function `job_control_get_job` which looks for a job inside the job list. In case the context represents the beginning of a new command a reference to a new job is returned. If the command on the other hand belongs to an already existing job because it is part of a pipeline command the already existing job is returned. Recall the `pipeline_end` field of the `execution_context_t` struct which provides the information for this decision. Next the `job_control_add_job_command` function is called. This function adds the information of the `execution_context_t` representing a command to the job. The `context->tokens` as well as the references to files for redirecting purposes are hard-copied from the `execution_contest` to a new entry inside the list of `job_command`'s. The `job_stat` value of the job command is set to `CMD_RUNNING` except the command is a shell builtin in which case the value is set to `CMD_TERMINATED`. So far only passing information to job control data structures took place. What follows are the functions which will actually run the command.
+
+### `launch_command`
+
+The `launch_command` function takes the current context, a reference to a process group id and a reference to a flag `prev_pipe_read` which purpose is going to be discussed soon. The function `launch_builtin` which is obviously responsible for launching shelly builtins acts kind of similar to `launch_command`. The focus for this part though is on the `launch_command` function. Now we will get our hands on some Linux operating system features.
+
+When you open up your terminal and your favourite shell starts up
