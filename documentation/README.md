@@ -231,7 +231,7 @@ static int launch_command(execution_context_t *context, pid_t *job_pgid, int *pr
 
 Soon after being called, this function performs a `fork()` system call, creating a child process from the calling process. After the call to fork, execution continues in both the parent and the newly created child process. The return value of fork() is used to distinguish between the two execution paths: a return value of 0 indicates that the code is running in the child, while a positive return value contains the PID of the child and therefore indicates the parent process. The code in the two sections makes sure the user can later interact with the started process(es) via process groups and pipelining as well as redirecting data is handled properly. Inside the child process the call to `execvp(..)` replaces the child process image with the program specified by `context->tokens[0]`. The first argument to `execvp()` specifies the executable to run, while the second argument, `context->tokens`, is the `NULL`-terminated argument vector that is passed to the new program. Apart from the call to execvp(), there is still quite a bit happening in both the parent and the child process. To understand these parts in more detail, we will now take a closer look at process groups, input/output redirections, and pipelines.
 
-##### Linux process groups
+#### Linux process groups
 
 When running commands in a shell the user can interact with the started process(es). One can try to terminate the process(es) by hitting `CTRL + C` or suspend it by hitting `CTRL + Z` or just wait until it is finished. To accomplish this for shelly too, it makes use of the concept of process groups. Each process started in Linux has a process group id inherited of its parent. One can then group launched processes together by choosing one leading process whose pid becomes the process group id of all processes which are part of the process group. Additionally signals in Linux can not only be delivered to single processes but rather be delivered to whole process groups. In case one sents a signal to a process group the signal gets delivered to all processes of this process group. In the job control stage we will take advantage of this and some builtin features of the terminal shelly runs in. Our goal for now is to group processes together. All comands of a pipeline shall be put in a process group. Single commands get their own private process group. Let's analyze the code.
 
@@ -253,7 +253,9 @@ The following example illustrates how the grouping of processes is performed:
 cmd1 & cmd2 | cmd3 & cmd4
 ```
 
-So in this case `cmd1` gets launched first and becomes the leader of a process group which only incorporates its own process. Since this command is a non-pipeline command the value of `job_pgid` inside the executor gets set back to zero. With the launch of `cmd2` again a new process group is created which is made up of `cmd2`'s own process. But now the value of `job_pgid` is not set back to zero because `cmd3` must also be member of `cmd2`'s process group. After the launch of `cmd3` and assigning the process to the process group of `cmd2` the value `job_pgid` again gets set back to zero so that `cmd4` is going to have its own process group again. So now every process has his or her process group id, the loop inside of the executor keeps track of the current pgid so everyone should be happy right? With setting the pgid for itself inside the `fork`-ed child we unfortunately can run into a race condition. Imagine process A arises from the call to `fork`. By mischance the os doesn't schedule A for some time after it got spawned meaning that A's call to `child_set_pgid` is postponed. Hence a process group with the id of A's pid is not created. Meanwhile the parent of A updates the `job_pgid` value, exits the function and initiates a new call to `launch_command` from which the forked process B arises. B is supposed to be in the process group of A. Now B gets scheduled and makes the call to `child_set_pgid` with the variable `job_pgid` which holds the assumed existing process group id. But since A's call to `child_set_pgid` did not happen yet there is no process group with the value of `job_pgid`. Consequently B's call to `set_pgid` trying to set its pgid to the non existing pgid of A will fail. In order to prevent this race condition one is forced to set the pgid of the child inside the parent too. This guarantees the existence of A's process group for upcomming proccesses trying to join A's process group.
+So in this case `cmd1` gets launched first and becomes the leader of a process group which only incorporates its own process. Since this command is a non-pipeline command the value of `job_pgid` inside the executor gets set back to zero. With the launch of `cmd2` again a new process group is created which is made up of `cmd2`'s own process. But now the value of `job_pgid` is not set back to zero because `cmd3` must also be member of `cmd2`'s process group. After the launch of `cmd3` and assigning the process to the process group of `cmd2` the value `job_pgid` again gets set back to zero so that `cmd4` is going to have its own process group again. So now every process has his or her process group id, the loop inside of the executor keeps track of the current pgid so everyone should be happy right? With setting the pgid for itself inside the `fork`-ed child we unfortunately can run into a race condition.
+
+Imagine process A arises from the call to `fork`. By mischance the os doesn't schedule A for some time after it got spawned meaning that A's call to `child_set_pgid` is postponed. Hence a process group with the id of A's pid is not created. Meanwhile the parent of A updates the `job_pgid` value, exits the function and initiates a new call to `launch_command` from which the forked process B arises. B is supposed to be in the process group of A. Now B gets scheduled and makes the call to `child_set_pgid` with the variable `job_pgid` which holds the assumed existing process group id. But since A's call to `child_set_pgid` did not happen yet there is no process group with the value of `job_pgid`. Consequently B's call to `set_pgid` trying to set its pgid to the non existing pgid of A will fail. In order to prevent this race condition one is forced to set the pgid of the child inside the parent too. This guarantees the existence of A's process group for upcomming proccesses trying to join A's process group.
 
 ```c
     ...
@@ -270,6 +272,120 @@ So in this case `cmd1` gets launched first and becomes the leader of a process g
     ...
 ```
 
-With this race condition handled we are done with grouping processes in the execution stage. We are going to use these grouped processes later on at the job control stage. Let's now have a look at the handling of input/output redirections and pipelining.
+With this race condition handled we are done with grouping processes in the execution stage. We are going to use these grouped processes later on at the job control stage. After a successfull call to `launch_command` the executor updates the `pgid` value in the job struct the launched process belongs to. Let's now have a look at the handling of input/output redirections and pipelining.
 
-##### |-ing and redirections
+#### |-ing and redirections
+
+Input/ouput redirections and pipelining are closely related to each other. They both boil down to manipulating the file descriptors a command uses for standard input and standard output. Normally a command reads input from file descriptor `0` (`STDIN`) and writes its output to file descriptor `1` (`STDOUT`). By changing what these file descriptors refer to, the executed program itself does not need to know whether its input comes from the terminal, a file or the output of another process. The same applies to its output. From the perspective of the executed program it simply continues reading from STDIN and writing to STDOUT.
+
+For the `launch_command` the information wether and what kind of redirections are intended are stored inside of the `flags` value of an execution context. After entering the function and before `fork`-ing one must decide wether we need a pipeline for the current command to write into. This check is performed via the `create_pipe` function:
+
+```c
+static int create_pipe(execution_context_t *context, int *pipe_fds) {
+    if ((context->flags & REDIR_INTO_PIPE) == REDIR_INTO_PIPE && pipe(pipe_fds) == -1) {
+        return -1;
+    }
+
+    return 0;
+}
+```
+
+In case the `REDIR_INTO_PIPE` flag is set (meaning the current command wants to redirect its output tino another command), a fresh pipe is ordered from the system. `launch_command` can then access this pipe by referencing the read and write end of the pipe. These two file descriptors are saved to the integer array reference `int *pipe_fds` the `launch_command` function provided as arguments for `create_pipe`. After this `launch_command` performs the known `fork` leaving us again with two execution paths to have a look at.
+
+The child calls the function `manipulate_fds`. It receives the current execution context, the file descriptors of a possibly newly created pipe and a reference to `prev_pipe_read`. `manipulate_fds` uses these flags to decide which file descriptors need to be changed. Let's first have a look at the redirection to files:
+
+```c
+static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
+...
+    if ((context->flags & REDIR_IN ) == REDIR_IN) {
+        fd = open(context->input_file, O_RDONLY);
+
+        if (fd == -1) {
+            handle_error(errno, context->input_file);
+            return -1;
+        }
+        dup2(fd, 0);
+    }
+...
+}
+```
+
+In case the `REDIR_IN` flag is set, the file referenced by `context->input_file` is opened for reading. The resulting file descriptor is then passed to `dup2(fd, 0)`. The `dup2` call makes file descriptor 0 refer to the same open file as fd. Since file descriptor 0 represents the standard input of a process, reads from `STDIN` performed by the program executed later on will now read from the specified file instead of the terminal. Redirecting standard output works in the same fashion:
+
+```c
+static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
+...
+    if ((context->flags & REDIR_OUT ) == REDIR_OUT) {
+            fd = open(context->output_file, (O_WRONLY | O_CREAT | O_TRUNC), mode);
+
+            if (fd == -1) {
+                handle_error(errno, context->output_file);
+                return -1;
+            }
+            dup2(fd, 1);
+        }
+    ...
+}
+```
+
+In case the `REDIR_OUT` flag is present, the specified output file is opened using `O_WRONLY | O_CREAT | O_TRUNC`. Hence the file is opened for writing, created if it does not exist yet and truncated in case it already exists. The call to `dup2(fd, 1)` then makes the standard output of the process refer to this file. Consequently everything the executed program writes to `STDOUT` will end up inside the specified file. The `REDIR_APPEND` case works almost identically. The main difference is the use of `O_APPEND` instead of `O_TRUNC`. Existing content is therefore preserved and new output is appended to the end of the file. In both output cases newly created files use the mode `0644`.
+
+Note that this file descriptor manipulations happens before the child calls `execvp`. When `execvp` replaces the child process image, the configured file descriptors remain available to the newly executed program. Let's now get to the pipelining stuff.
+
+As already mentioned a Linux pipe consists of two file descriptors. One side is used for reading and the other side is used for writing. Now consider the following pipeline:
+
+```
+cmd1 | cmd2
+```
+
+Now the the standard output of `cmd1` must be connected to the write end of the pipe. This happens inside manipulate_fds when the `REDIR_INTO_PIPE` flag is set:
+
+```c
+static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
+...
+    if ((context->flags & REDIR_INTO_PIPE) == REDIR_INTO_PIPE) {
+            ...
+            close(pipe_fds[0]);
+            dup2(pipe_fds[1], 1);
+        }
+...
+}
+```
+
+After this call file descriptor 1, and therefore `STDOUT`, refers to the write end of the pipe. Everything `cmd1` writes to its standard output can consequently be read from the other end of the pipe. The read end of the pipe is no longer needed and can be closed.
+The other side of this connection is established for commands which receive their input from a previous command in the pipeline. Such commands have the `REDIR_OUT_OF_PIPE` flag set. In this case `manipulate_fds` performs the following operation:
+
+```c
+static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
+...
+    if ((context->flags & REDIR_OUT_OF_PIPE) == REDIR_OUT_OF_PIPE) {
+        dup2(*prev_pipe_read, 0);
+    }
+...
+}
+```
+
+The variable `prev_pipe_read` contains the read end of the pipe belonging to the previous command. By calling `dup2(*prev_pipe_read, 0)`, file descriptor 0, and therefore `STDIN`, is made to refer to this read end. From the perspective of the child process the pipeline is now completely transparent. The first command simply writes to its `STDOUT`, while the following command simply reads from its `STDIN`. The fact that these two file descriptors are connected through a pipe is of no concern to the programs executed later on.
+
+So far we have seen how manipulate_fds connects the standard input and output of child processes to files and corresponding pipe ends. What happens in the parent code after `fork`-ing? The parents code is responsible for solving a remaining problem. When launching the first command of a pipeline, the following command does not exist yet. The read end of the pipe therefore has to survive the return from `launch_command` so that it can later be used as the standard input of the following command. This is the purpose of the `prev_pipe_read` variable. The variable is initialized with a value of 0 inside the executor and passed as a reference through the individual calls to `launch_command`. After a child process has been launched, the parent calls `pipe_cleanup_parent`:
+
+```c
+static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
+    ...
+    if ((context->flags & REDIR_INTO_PIPE) == REDIR_INTO_PIPE) {
+        close(pipe_fds[1]);
+        *prev_pipe_read = pipe_fds[0];
+    }
+}
+```
+
+If the current command writes into a pipe, the parent itself does not need the write end of that pipe anymore and therefore closes `pipe_fds[1]`. The read end however is still needed for the next command of the pipeline. Its file descriptor is therefore stored inside `prev_pipe_read`. Since `prev_pipe_read` is passed as a reference and lives inside the executor, its value survives the return from the current call to `launch_command`. When the executor proceeds to the next execution context, the stored read end is passed to the next call to `launch_command` and consequently to `manipulate_fds`. A command which receives its input from the previous command can then read from the file via `dup2(*prev_pipe_read, 0)` as discussed [here](https://github.com/JackyCarlos/shelly/tree/main/documentation#358). After the read end stored in `prev_pipe_read` has been used for the next command, the parent does not need to keep this file descriptor open anymore. Therefore, on the next call to `pipe_cleanup_parent`, the previous read end is closed:
+
+```c
+    // close read fds to previous pipe
+    if (*prev_pipe_read) {
+        close(*prev_pipe_read);
+    }
+```
+
+In case the current command itself redirects its output into another pipe, the same procedure starts again. The parent closes the write end of the newly created pipe and stores its read end inside `prev_pipe_read`.
