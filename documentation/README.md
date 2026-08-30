@@ -192,7 +192,7 @@ Now we can understand the `executor`.
 
 ### `executor` functionality
 
-The `executor` function iterates over the list of `execution_context_t` structs it receives as an argument. It first calls the job control function `job_control_get_job` which looks for a job inside the job list. In case the context represents the beginning of a new command a reference to a new job is returned. If the command on the other hand belongs to an already existing job because it is part of a pipeline command the already existing job is returned. Recall the `pipeline_end` field of the `execution_context_t` struct which provides the information for this decision. Next the `job_control_add_job_command` function is called. This function adds the information of the `execution_context_t` representing a command to the job. The `context->tokens` as well as the references to files for redirecting purposes are hard-copied from the `execution_contest` to a new entry inside the list of `job_command`'s. The `job_stat` value of the job command is set to `CMD_RUNNING` except the command is a shell builtin in which case the value is set to `CMD_TERMINATED`. So far only passing information to job control data structures took place. What follows are the functions which will actually run the command(s).
+The `executor` function iterates over the list of `execution_context_t` structs it receives as an argument. It first calls the job control function `job_control_get_job` which looks for a job slot inside the job list. In case the context represents the beginning of a set of commands (e.g. a pipeline command) a reference to a new job is returned. If the command on the other hand belongs to an already existing job because it is part of a pipeline the already existing job is returned. Recall the `pipeline_end` field of the `execution_context_t` struct which provides the information for this decision. Next the `job_control_add_job_command` function is called. This function adds the data of the `execution_context_t` representing a command to the job. The `context->tokens` as well as the references to files for redirecting purposes are hard-copied from the `execution_contest` to a new entry inside the list of `job_command`'s. The `job_stat` value of the job command is set to `CMD_RUNNING` except the command is a shell builtin in which case the value is set to `CMD_TERMINATED`. So far only passing information to job control data structures took place. What follows are the functions which will actually launch the command(s). For each entry in the list of execution contexts `launch_command` or `launch_builtin` is called.
 
 #### `launch_command`
 
@@ -220,7 +220,6 @@ static int launch_command(execution_context_t *context, pid_t *job_pgid, int *pr
     } else if (pid < 0) {
         fprintf(stderr, "fork error\n");
     } else {
-        // set the pgid variable as parent too in order to prevent race conditions
         parent_set_pgid(pid, job_pgid);
 
         pipe_cleanup_parent(context, pipe_fds, prev_pipe_read);
@@ -230,13 +229,14 @@ static int launch_command(execution_context_t *context, pid_t *job_pgid, int *pr
 }
 ```
 
-Soon after beeing called this function performs a `fork()` syscall which leads to a clone of the calling process. We now have two completly identical processes. The if statement afterwoods is to determine wether the follwing code is run inside of the child or the parent. In case `pid` is 0 the code is run inside the child - otherwise the code is run inside of the parent. The code in the two sections makes sure the user can later interact with the process(es) and pipelining as well as redirecting data is handled properly. Now we will get our hands on some other Linux operating system features.
+Soon after being called, this function performs a `fork()` system call, creating a child process from the calling process. After the call to fork, execution continues in both the parent and the newly created child process. The return value of fork() is used to distinguish between the two execution paths: a return value of 0 indicates that the code is running in the child, while a positive return value contains the PID of the child and therefore indicates the parent process. The code in the two sections makes sure the user can later interact with the started process(es) via process groups and pipelining as well as redirecting data is handled properly. Inside the child process the call to `execvp(..)` replaces the child process image with the program specified by `context->tokens[0]`. The first argument to `execvp()` specifies the executable to run, while the second argument, `context->tokens`, is the `NULL`-terminated argument vector that is passed to the new program. Apart from the call to execvp(), there is still quite a bit happening in both the parent and the child process. To understand these parts in more detail, we will now take a closer look at process groups, input/output redirections, and pipelines.
 
-##### linux process groups
+##### Linux process groups
 
-After launching a command inside of a shell in a terminal the user can interact with the started process(es). One can try to terminate the process by hitting `CTRL + C` or suspend it by hitting `CTRL + Z` or just wait until it is finished. To accomplish this for shelly too, it makes use of the concept of process groups. Each process started in Linux has a process group id inherited of its parent. One can then group launched processes together by choosing one leading process whose pid becomes the process group id of all processes which are part of the process group. Signals in Linux can not only be delivered to single processes but rather be delivered to whole process groups. In case one sents a signal to a process group the signal gets delivered to all processes of this process group. In the job control stage we will take advantage of this and some builtin features of the terminal shelly runs in. Our goal for now is to group processes together.
+When running commands in a shell the user can interact with the started process(es). One can try to terminate the process(es) by hitting `CTRL + C` or suspend it by hitting `CTRL + Z` or just wait until it is finished. To accomplish this for shelly too, it makes use of the concept of process groups. Each process started in Linux has a process group id inherited of its parent. One can then group launched processes together by choosing one leading process whose pid becomes the process group id of all processes which are part of the process group. Additionally signals in Linux can not only be delivered to single processes but rather be delivered to whole process groups. In case one sents a signal to a process group the signal gets delivered to all processes of this process group. In the job control stage we will take advantage of this and some builtin features of the terminal shelly runs in. Our goal for now is to group processes together. All comands of a pipeline shall be put in a process group. Single commands get their own private process group. Let's analyze the code.
 
-Before the first call to `launch_command` the executor creates the variable `job_pgid` with the initial value of `0`. This variables' purpose is to hold the process group id of the current process group we are working with. `launch_command` receives this variable as a reference, so the value does not lose its value during multiple calls to `launch_command`. After `fork`-ing inside `launch_command` the child calls the function `child_set_pgid` providing the `job_pgid` variable as an argument. In case the value of the argument is `0` the current process is meant to be the leader of a new process group (since there is no current process group) and calls `setpgid(0, 0)`. This function creates a new process group with the calling process as the leader of that group. This means that the process will join a new process group where its process id will also be its process group id (pgid). In case the value of `job_pgid` is unequal to `0`, `setpgid(0, *job_pgid)` gets called which sets the pgid of the calling process to the already existing pgid inside of `job_pgid`. This happens in case a command is not the first command of a pipeline command. The main loop of the executor guarantees that the value of the `job_pgid` variable is set back to zero as soon as the final command of a set of commands is encountered. For a follow-up command the `launch_command` function will create a new fresh process group for the calling process. This can be seen in the following part of the while loop of the executor:
+Before the first call to `launch_command` the executor creates the variable `job_pgid` with the initial value of `0`. This variables' purpose is to hold the process group id of the current process group we are working with. `launch_command` receives this variable as a reference, so the value does not lose its value during multiple calls to `launch_command` from the executor. After `fork`-ing inside `launch_command` the child calls the function `child_set_pgid` providing the `job_pgid` variable as an argument. In case the value of the argument is `0` the current process is meant to be the leader of a new process group (since there is no current process group) and calls `setpgid(0, 0)`. This function creates a new process group with the calling process as the leader of that group. This means that the process will join a new process group where its process id will also be its process group id (pgid). In case the value of `job_pgid` is unequal to `0`, `setpgid(0, *job_pgid)` gets called which sets the pgid of the calling process to the already existing pgid inside of `job_pgid`. This happens in case a command is not the first command of a pipelined command. After `fork`-ing inside `launch_command` the parent receives the pid of the created process and updates the reference to the `job_pgid` variable via the `parent_set_pgid` function.
+The main loop of the executor guarantees that the value of the `job_pgid` variable is set back to zero as soon as the final command of a set of commands is encountered. For a following execution context the `launch_command` function will then create a new fresh process group for the calling process. The resetting of `job_pgid` can be seen in the following part of the while loop of the executor:
 
 ```c
 ...
@@ -247,24 +247,29 @@ if (context_list->pipeline_end) {
 ...
 ```
 
-The following exmaple illstrates how the grouping of processes is handled:
+The following example illustrates how the grouping of processes is performed:
 
 ```
 cmd1 & cmd2 | cmd3 & cmd4
 ```
 
-So in this case `cmd1` gets launched first and becomes the leader of a process group which only incorporates its own process. Since this command is a non-pipeline command the value of `job_pgid` inside the executor gets set back to zero. With the launch of `cmd2` again a new process group is created which is made up of `cmd2`'s own process. But now the value of `job_pgid` is not set back to zero because `cmd3` must also be member of `cmd2`'s process group. After the launch of `cmd3` and assigning the process to the process group of `cmd2` the value `job_pgid` again gets set back to zero so that `cmd4` is going to have its own process group again. So now every process has his or her process group id so everyone should be happy right? With setting the pgid only inside the `fork`-ed child we unfortunately can run into a race condition:
+So in this case `cmd1` gets launched first and becomes the leader of a process group which only incorporates its own process. Since this command is a non-pipeline command the value of `job_pgid` inside the executor gets set back to zero. With the launch of `cmd2` again a new process group is created which is made up of `cmd2`'s own process. But now the value of `job_pgid` is not set back to zero because `cmd3` must also be member of `cmd2`'s process group. After the launch of `cmd3` and assigning the process to the process group of `cmd2` the value `job_pgid` again gets set back to zero so that `cmd4` is going to have its own process group again. So now every process has his or her process group id, the loop inside of the executor keeps track of the current pgid so everyone should be happy right? With setting the pgid for itself inside the `fork`-ed child we unfortunately can run into a race condition. Imagine process A arises from the call to `fork`. By mischance the os doesn't schedule A for some time after it got spawned meaning that A's call to `child_set_pgid` is postponed. Hence a process group with the id of A's pid is not created. Meanwhile the parent of A updates the `job_pgid` value, exits the function and initiates a new call to `launch_command` from which the forked process B arises. B is supposed to be in the process group of A. Now B gets scheduled and makes the call to `child_set_pgid` with the variable `job_pgid` which holds the assumed existing process group id. But since A's call to `child_set_pgid` did not happen yet there is no process group with the value of `job_pgid`. Consequently B's call to `set_pgid` trying to set its pgid to the non existing pgid of A will fail. In order to prevent this race condition one is forced to set the pgid of the child inside the parent too. This guarantees the existence of A's process group for upcomming proccesses trying to join A's process group.
 
-its crucial for the parent to also set the process group id of
-
-So how can we use a process group for our needs? Let's have a look at an example:
-
-What exactly happens when running the command `sleep 10` in the shell of your choice inside a terminal?
-
-Terminal foreground process group. The terminal delivers all signal it receives from the user by hitting for example CTRL + C or CTRL + Z to this foreground group. The first process run wether the command is made up of one or more processes is always the leader of the process group. The signals are meant to be delivered to all processes of the process group.
-
-When you open up a terminal and run a command sleep 100 puts the command in th. A terminal has always a foreground process group. All the signals you sent e.g. by hitting CRTL + C are delivered
-
+```c
+    ...
+    if (pid == 0) {
+        ...
+        child_set_pgid(job_pgid);
+        ...
+    ...
+    } else {
+        // set the pgid variable as parent too in order to prevent race conditions
+        parent_set_pgid(pid, job_pgid);
+        ...
+    }
+    ...
 ```
 
-```
+With this race condition handled we are done with grouping processes in the execution stage. We are going to use these grouped processes later on at the job control stage. Let's now have a look at the handling of input/output redirections and pipelining.
+
+##### |-ing and redirections
