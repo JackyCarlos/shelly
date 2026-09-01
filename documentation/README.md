@@ -14,7 +14,7 @@ In general shelly repeatedly does the following: It reads input from the command
 2. tokenizing stage. The read input is splitted into tokens which have a certain token type.
 3. contexting stage. The list of previously created tokens is translated into execution contexts. Here the syntax of the input is checked.
 4. execution stage. shelly launches all provided commands and handles input/output redirection as well as pipelining. Along the way executed commands are turned into jobs.
-5. job control stage. The started jobs are finally delivered to the job control. shelly waits for jobs to finish independent wether they are in fore- or background.
+5. job control stage. The started jobs are finally delivered to the job control. shelly waits for jobs to finish independent whether they are in fore- or background.
 
 In the following we are going to have a closer look at each stage.
 
@@ -63,7 +63,7 @@ The tokenizer is implemented over the function `token_t *tokenizer(char *line)` 
 
 ## Contexting stage or parsing stage
 
-This stage has two main goals. First every input the user provides must be checked wether it makes up a valid shell command according to the features shelly supports. In other words: It must be checked wether it follows the syntax of the language shelly works with. Since I wasn't interrested in implementing features like subshells (`$(..)`) or higher level control structures like if statements or for/while loops, a regular language was fine for my needs. The following grammar in 'Extended Backus Naur Form' (EBNF) defines the language $L$ of shelly:
+This stage has two main goals. First every input the user provides must be checked whether it makes up a valid shell command according to the features shelly supports. In other words: It must be checked whether it follows the syntax of the language shelly works with. Since I wasn't interrested in implementing features like subshells (`$(..)`) or higher level control structures like if statements or for/while loops, a regular language was fine for my needs. The following grammar in 'Extended Backus Naur Form' (EBNF) defines the language $L$ of shelly:
 
 ```
 word          = [a-zA-Z0-9]+
@@ -135,8 +135,8 @@ typedef enum {
 ```
 
 - `char *input_file, *output_file, *append_file`: Each of these char pointers reference the target filename of an intended redirection operation. The default value for each of these is `NULL`.
-- `int is_background`: This flag indicates wether the command shall be run in the fore- or background.
-- `int pipeline_end`: This flag indicates wether the command is the final one in the current chain of commands.
+- `int is_background`: This flag indicates whether the command shall be run in the fore- or background.
+- `int pipeline_end`: This flag indicates whether the command is the final one in the current chain of commands.
 
 This parser or contexter is available under the function `execution_context_t *get_context(token_t *)`. It turns a list of tokens into a list of execution contexts. In case there is a syntax error the function returns `NULL`. With this stage done shelly is ready to run the commands.
 
@@ -163,7 +163,7 @@ This struct holds the following information:
 
 - `int id`: The id of the job inside the job list.
 - `int pgid`: The id of the process group of the job (to be discussed later in this chapter).
-- `int is_background`: Flag indicating wether the job is run in the fore- or background of the terminal.
+- `int is_background`: Flag indicating whether the job is run in the fore- or background of the terminal.
 - `job_status status`: Enum value representing the status of the job. Possible values include `RUNNING`, `SUSPENDED` and `TERMINATED`.
 
 Each job is made up of one or more commands. These commands are called job-commands and reside inside the `job_command_t *job_commands` list. The remaining two variables hold information about the size and the capacity of the list. The `job_command_t` structs is very similar to the execution context struct. It simply adds variables to hold information about the execution information of the command:
@@ -233,7 +233,7 @@ Soon after being called, this function performs a `fork()` system call, creating
 
 #### Linux process groups
 
-When running commands in a shell the user can interact with the started process(es). One can try to terminate the process(es) by hitting `CTRL + C` or suspend it by hitting `CTRL + Z` or just wait until it is finished. To accomplish this for shelly too, it makes use of the concept of process groups. Each process started in Linux has a process group id inherited of its parent. One can then group launched processes together by choosing one leading process whose pid becomes the process group id of all processes which are part of the process group. Additionally signals in Linux can not only be delivered to single processes but rather be delivered to whole process groups. In case one sents a signal to a process group the signal gets delivered to all processes of this process group. In the job control stage we will take advantage of this and some builtin features of the terminal shelly runs in. Our goal for now is to group processes together. All comands of a pipeline shall be put in a process group. Single commands get their own private process group. Let's analyze the code.
+When running commands in a shell the user can interact with the started process(es). One can try to terminate the process(es) by hitting `CTRL + C` or suspend it by hitting `CTRL + Z` or just wait until it is finished. To accomplish this for shelly too, it makes use of the concept of process groups. Each process started in Linux has a process group id inherited of its parent. One can then group launched processes together by choosing one leading process whose pid becomes the process group id of all processes which are part of the process group. Additionally signals in Linux can not only be delivered to single processes but rather be delivered to whole process groups. In case one sents a signal to a process group the signal gets delivered to all processes of this process group. In the job control stage we will take advantage of this and some builtin features of the terminal shelly runs in. Then we will discuss what it really means for a process to be in the foreground. Our goal for now is to group processes together. All comands of a pipeline shall be put in a process group. Single commands get their own private process group. Let's analyze the code.
 
 Before the first call to `launch_command` the executor creates the variable `job_pgid` with the initial value of `0`. This variables' purpose is to hold the process group id of the current process group we are working with. `launch_command` receives this variable as a reference, so the value does not lose its value during multiple calls to `launch_command` from the executor. After `fork`-ing inside `launch_command` the child calls the function `child_set_pgid` providing the `job_pgid` variable as an argument. In case the value of the argument is `0` the current process is meant to be the leader of a new process group (since there is no current process group) and calls `setpgid(0, 0)`. This function creates a new process group with the calling process as the leader of that group. This means that the process will join a new process group where its process id will also be its process group id (pgid). In case the value of `job_pgid` is unequal to `0`, `setpgid(0, *job_pgid)` gets called which sets the pgid of the calling process to the already existing pgid inside of `job_pgid`. This happens in case a command is not the first command of a pipelined command. After `fork`-ing inside `launch_command` the parent receives the pid of the created process and updates the reference to the `job_pgid` variable via the `parent_set_pgid` function.
 The main loop of the executor guarantees that the value of the `job_pgid` variable is set back to zero as soon as the final command of a set of commands is encountered. For a following execution context the `launch_command` function will then create a new fresh process group for the calling process. The resetting of `job_pgid` can be seen in the following part of the while loop of the executor:
@@ -272,13 +272,13 @@ Imagine process A arises from the call to `fork`. By mischance the os doesn't sc
     ...
 ```
 
-With this race condition handled we are done with grouping processes in the execution stage. We are going to use these grouped processes later on at the job control stage. After a successfull call to `launch_command` the executor updates the `pgid` value in the job struct the launched process belongs to. Let's now have a look at the handling of input/output redirections and pipelining.
+With this race condition handled we are done with grouping processes in the execution stage. We are going to use these grouped processes later on at the job control stage. For now they are just running processes grouped together. After a successfull call to `launch_command` the executor updates the `pgid` value in the job struct the launched process belongs to. Let's now have a look at the handling of input/output redirections and pipelining.
 
 #### |-ing and redirections
 
 Input/ouput redirections and pipelining are closely related to each other. They both boil down to manipulating the file descriptors a command uses for standard input and standard output. Normally a command reads input from file descriptor `0` (`STDIN`) and writes its output to file descriptor `1` (`STDOUT`). By changing what these file descriptors refer to, the executed program itself does not need to know whether its input comes from the terminal, a file or the output of another process. The same applies to its output. From the perspective of the executed program it simply continues reading from STDIN and writing to STDOUT.
 
-For the `launch_command` the information wether and what kind of redirections are intended are stored inside of the `flags` value of an execution context. After entering the function and before `fork`-ing one must decide wether we need a pipeline for the current command to write into. This check is performed via the `create_pipe` function:
+For the `launch_command` the information whether and what kind of redirections are intended are stored inside of the `flags` value of an execution context. After entering the function and before `fork`-ing one must decide whether we need a pipeline for the current command to write into. This check is performed via the `create_pipe` function:
 
 ```c
 static int create_pipe(execution_context_t *context, int *pipe_fds) {
@@ -352,8 +352,7 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
 }
 ```
 
-After this call file descriptor 1, and therefore `STDOUT`, refers to the write end of the pipe. Everything `cmd1` writes to its standard output can consequently be read from the other end of the pipe. The read end of the pipe is no longer needed and can be closed.
-The other side of this connection is established for commands which receive their input from a previous command in the pipeline. Such commands have the `REDIR_OUT_OF_PIPE` flag set. In this case `manipulate_fds` performs the following operation:
+After the call to `dup2(pipe_fds[1], 1)`, `STDOUT` refers to the write end of the pipe. Everything `cmd1` writes to its standard output can consequently be read from the other end of the pipe. The read end of the pipe is no longer needed and can be closed via `close(pipe_fds[0])`. The other side of this connection is established for commands which receive their input from a previous command in the pipeline. Such commands have the `REDIR_OUT_OF_PIPE` flag set. In this case `manipulate_fds` performs the following operation:
 
 ```c
 static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
@@ -365,9 +364,9 @@ static int manipulate_fds(execution_context_t *context, int *pipe_fds, int *prev
 }
 ```
 
-The variable `prev_pipe_read` contains the read end of the pipe belonging to the previous command. By calling `dup2(*prev_pipe_read, 0)`, file descriptor 0, and therefore `STDIN`, is made to refer to this read end. From the perspective of the child process the pipeline is now completely transparent. The first command simply writes to its `STDOUT`, while the following command simply reads from its `STDIN`. The fact that these two file descriptors are connected through a pipe is of no concern to the programs executed later on.
+The variable `prev_pipe_read` contains the read end of the pipe belonging to the previous command. By calling `dup2(*prev_pipe_read, 0)`, `STDIN` is made to refer to this read end. From the perspective of the child process the pipeline is now completely transparent. The first command simply writes to its `STDOUT`, while the following command simply reads from its `STDIN`. The fact that these two file descriptors are connected through a pipe is of no concern to the programs executed later on.
 
-So far we have seen how manipulate_fds connects the standard input and output of child processes to files and corresponding pipe ends. What happens in the parent code after `fork`-ing? The parents code is responsible for solving a remaining problem. When launching the first command of a pipeline, the following command does not exist yet. The read end of the pipe therefore has to survive the return from `launch_command` so that it can later be used as the standard input of the following command. This is the purpose of the `prev_pipe_read` variable. The variable is initialized with a value of 0 inside the executor and passed as a reference through the individual calls to `launch_command`. After a child process has been launched, the parent calls `pipe_cleanup_parent`:
+So far we have seen how `manipulate_fds` connects the standard input and output of child processes to files and corresponding pipe ends. What happens in the parent code after `fork`-ing? The parents code is responsible for solving a remaining problem. When launching the first command of a pipeline, the following command does not exist yet. The read end of the pipe therefore has to survive the return from `launch_command` so that it can later be used as the standard input of the following command. This is the purpose of the `prev_pipe_read` variable. The variable is initialized with a value of 0 inside the executor and passed as a reference through the individual calls to `launch_command`. After a child process has been launched, the parent calls `pipe_cleanup_parent`:
 
 ```c
 static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int *prev_pipe_read) {
@@ -379,7 +378,7 @@ static void pipe_cleanup_parent(execution_context_t *context, int *pipe_fds, int
 }
 ```
 
-If the current command writes into a pipe, the parent itself does not need the write end of that pipe anymore and therefore closes `pipe_fds[1]`. The read end however is still needed for the next command of the pipeline. Its file descriptor is therefore stored inside `prev_pipe_read`. Since `prev_pipe_read` is passed as a reference and lives inside the executor, its value survives the return from the current call to `launch_command`. When the executor proceeds to the next execution context, the stored read end is passed to the next call to `launch_command` and consequently to `manipulate_fds`. A command which receives its input from the previous command can then read from the file via `dup2(*prev_pipe_read, 0)` as discussed [here](https://github.com/JackyCarlos/shelly/tree/main/documentation#358). After the read end stored in `prev_pipe_read` has been used for the next command, the parent does not need to keep this file descriptor open anymore. Therefore, on the next call to `pipe_cleanup_parent`, the previous read end is closed:
+If the current command writes into a pipe, the parent itself does not need the write end of that pipe anymore and therefore closes `pipe_fds[1]`. The read end however is still needed for the next command of the pipeline. Its file descriptor is therefore stored inside `prev_pipe_read`. Since `prev_pipe_read` is passed as a reference and lives inside the executor, its value survives the return from the current call to `launch_command`. When the executor proceeds to the next execution context, the stored read end is passed to the next call to `launch_command` and consequently to `manipulate_fds`. A command which receives its input from the previous command can then read from the file via `dup2(*prev_pipe_read, 0)` as already discussed. After the read end stored in `prev_pipe_read` has been used for the next command, the parent does not need to keep this file descriptor open anymore. Therefore, on the next call to `pipe_cleanup_parent`, the previous read end is closed:
 
 ```c
     // close read fds to previous pipe
@@ -389,3 +388,92 @@ If the current command writes into a pipe, the parent itself does not need the w
 ```
 
 In case the current command itself redirects its output into another pipe, the same procedure starts again. The parent closes the write end of the newly created pipe and stores its read end inside `prev_pipe_read`.
+
+With this we have reached the end of the execution stage. The list of execution contexts has been processed and the corresponding commands have been launched. During this process the necessary input/output redirections and pipelines have been set up. The launched processes have on top been assigned to their corresponding process groups. At the same time the information contained in the execution contexts has been transferred into jobs and job commands so that the execution context list itself is no longer needed for keeping track of the launched processes. After processing the final execution context, the `executor` returns a reference to the last job it worked on and shelly finally free's the context and token list. From now on the job control is responsible for running processes.
+
+# job control stage
+
+After launching processes shelly needs a mechanism to keep track of their further execution and allow the user to interact with them. This is the responsibility of the job control. Once a process has been launched, its further execution is mostly independent of the control flow of shelly itself. A process may terminate on its own, it may be stopped or terminated through a signal or it may continue running while shelly itself proceeds with other tasks. The job control therefore has to keep track of changes to the state of these processes and update the corresponding jobs and job commands. Signals form an important mechanism for controlling and observing the launched processes. They allow processes to be interrupted, stopped or continued and also provide shelly with a way of being informed about changes to its child processes. Another important responsibility of the job control is collecting child processes after they have terminated or changed their state. Starting a process alone is not enough. Shelly eventually has to obtain information about what happened to the process and store this information inside the corresponding job structures. Jobs which are no longer needed can then be cleaned up and their resources released. With these general responsibilities in mind, we can now take a closer look at what happens after the executor has finished launching the processes of the current iteration.
+
+### `job_control_after_launch`
+
+The last stage finished with the executor returning the last `job_t` data structure it operated on. In case the command(s) of this job miss the `&` sign shelly cannot directly continue with a new iteration of the main loop. The missing ampersand means the job is supposed to run in the foreground and the user is supposed to be able to interact with it. To accomplish this shelly runs the function `job_control_after_launch` with the job as its argument which then calls the function `tcsetpgrp(0, job->pgid)`. This command hands the terminal foreground over to the process group of the job. Before shelly itself was in control of the terminal. The first argument 0 to `tcsetpgrp` refers to shelly's controlling terminal while the second argument specifies the process group which shall become the foreground process group of this terminal. By passing `job->pgid`, the complete process group of the job becomes the terminal's foreground process group. Now the user can begin interacting with the running job. Hitting `CTRL + C` for example causes the terminal to generate `SIGINT`, while pressing `CTRL + Z` causes it to generate `SIGTSTP`. These signals are not simply sent to one arbitrary process. The terminal delivers them to the processes belonging to its current foreground process group. With the help of process groups the terminal can treat all processes of a pipeline or single commands as one unit. Execution now continues with a call to the `foreground_job_wait` function discussed in the next section.
+
+In case the last job has a trailing ampersand there isn't a change of the foreground process groups. The last started job's process group remains in the background and the `job_control_after_launch` function returns immediatelly. In this case shelly can directly start a new iteration of the main loop.
+
+### `foreground_job_wait`
+
+```c
+void foreground_job_wait(job_t *job) {
+    int child_pid;
+    int child_status;
+    job_command_t *job_command;
+
+    child_status = 0;
+
+    while (job_running(job)) {
+        child_pid = waitpid(-job->pgid, &child_status, WUNTRACED);
+
+        for (int j = 0; j < job->job_cmd_counter; ++j) {
+            ...
+        }
+    }
+
+...
+}
+```
+
+The main purpose of this function is to wait for state changes of the processes belonging to the foreground job and update the corresponding job_command structures. The function keeps doing this as long as job_running(job) reports that at least one command of the job is still running. The actual waiting is performed by the call to
+
+```c
+child_pid = waitpid(-job->pgid, &child_status, WUNTRACED);
+```
+
+Usually `waitpid` can be used to wait for a specific child process by providing its PID as the first argument. In our case however we are not interested in one particular process. Recall that a job may consist of multiple processes in case it represents a pipeline. The negative value `-job->pgid` tells `waitpid` to wait for any child process whose process group id equals `job->pgid`. Once again the process groups created during the execution stage allow us to treat all processes belonging to one job as a unit. The second argument is a reference to `child_status`. Once `waitpid` returns because the state of one of the processes changed, information about what happened to this process is stored inside this variable. The return value itself contains the PID of the child whose state changed.
+
+Normally waitpid waits for terminated child processes. For job control this alone is not enough. A process running in the foreground does not necessarily have to terminate before shelly shall regain control. Consider a user hitting `CTRL + Z` on a running job. In this case the terminal sends `SIGTSTP` to its foreground process group. With this the process is consequently stopped but it still exists. Shelly nevertheless has to notice this state change because it cannot continue waiting for the process to terminate while the process itself is suspended. This is the reason for passing `WUNTRACED` to `waitpid`. With this option `waitpid` also returns when one of the waited-for child processes gets stopped. Shelly can therefore react not only to terminated processes but also to processes which have been suspended. After `waitpid` returns, `child_pid` tells us which process caused the return. The corresponding `job_command` still has to be found because the status information maintained by the job control is stored per command. The function therefore iterates over the commands belonging to the job and compares their stored PIDs with the PID returned by `waitpid`:
+
+```c
+...
+while (job_running(job)) {
+    child_pid = waitpid(-job->pgid, &child_status, WUNTRACED);
+
+    for (int j = 0; j < job->job_cmd_counter; ++j) {
+        job_command = &job->job_commands[j];
+
+        if (job_command->pid == child_pid) {
+            update_job_command_status(child_status, job_command);
+        }
+    }
+
+    ...
+}
+```
+
+Once the matching command is found, the status returned by `waitpid` is used to update the corresponding `job_command`. If the process was stopped, for example as a result of receiving `SIGTSTP`, the command is marked as `CMD_SUSPENDED`. If the process has terminated, its exit status is stored inside the `job_command` and its state is changed accordingly. A return value of 127, which is used by shelly when the execution of a command fails, results in `CMD_FAILURE`, while any other terminated process is marked as `CMD_TERMINATED`. With this, the information obtained from the operating system through waitpid has been transferred into shelly's own representation of the process state. The job control can now use the states of the individual `job_commands` to determine the state of the job as a whole. After updating the command the condition of the surrounding loop `job_running(job)` is checked again. The predicate function `job_running` iterates over all commands of the job and returns 1 as long as at least one of them still has the state `CMD_RUNNING`. This is especially important for pipelines. The termination or suspension of one process alone does not necessarily mean that shelly is done waiting for the complete job. `job_running` returning 0 means the foreground job has reached a state in which shelly can continue handling it. This does not necessarily mean that the complete job has terminated. All commands may have terminated, but they may also have been suspended. This distinction is handled back inside `job_control_after_launch` after leaving `foreground_job_wait`.
+
+Back inside `job_control_after_launch`, shelly therefore first checks whether the complete job has terminated:
+
+```c
+if (job_complete(job)) {
+    return_value = job->job_commands[job->job_cmd_counter - 1].return_value;
+    cleanup_job(job);
+}
+```
+
+If all `job_commands` of a job have reached a terminated state, the job is finished. The return value of the last command is stored as the return value of the job and the job itself can be cleaned up since shelly no longer has to keep track of it. If the job is not complete, the processes were suspended instead. In this case the job must not be cleaned up since it still represents existing processes which may later be continued. The job is therefore marked as `SUSPENDED` and kept inside the job list:
+
+```c
+if (!job_running(job)) {
+    job->status = SUSPENDED;
+    job->is_background = 1;
+
+    job_display_print_ctrlz(job);
+}
+```
+
+At this point shelly is done handling the foreground execution of the job. Regardless of whether the job terminated or was suspended, the process group of the job must no longer remain the foreground process group of the terminal. Remember that before entering `foreground_job_wait`, shelly handed the terminal foreground to the job using `tcsetpgrp`. Shelly now takes it back by making its own process group the foreground process group again via `tcsetpgrp(0, global_shell_pgid)`. `global_shell_pgid` is shelly's process group id set at the startup of shelly.
+
+This completes the handling of a foreground job via `job_control_after_launch`. If the job terminated, it has already been cleaned up. If it was suspended, its state remains stored inside the job list and it can be interacted with again later. The terminal is controlled by shelly's process group again.
+
+With the handling of a foreground job covered, there is still another case left to consider. Shelly does not always wait for a launched job before continuing its main loop. Processes may continue running while shelly is either waiting for further user input or waiting for another job currently running in the foreground. There needs to be a way to notice and collect state changes of these processes without actively waiting for them.
