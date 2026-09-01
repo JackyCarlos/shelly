@@ -461,7 +461,7 @@ if (job_complete(job)) {
 }
 ```
 
-If all `job_commands` of a job have reached a terminated state, the job is finished. The return value of the last command is stored as the return value of the job and the job itself can be cleaned up since shelly no longer has to keep track of it. If the job is not complete, the processes were suspended instead. In this case the job must not be cleaned up since it still represents existing processes which may later be continued. The job is therefore marked as `SUSPENDED` and kept inside the job list:
+If all `job_commands` of a job have reached a terminated state, the job is finished. The return value of the last command is stored as the return value of the job and the job itself can be cleaned up since shelly no longer has to keep track of it. If the job is not complete, the processes were suspended instead. In this case the job must not be cleaned up since it still represents existing processes which may later be continued. The job is therefore marked as `SUSPENDED` and kept inside the job list. On top the user is informed about the stopped process via `job_display_print_ctrlz`:
 
 ```c
 if (!job_running(job)) {
@@ -477,3 +477,132 @@ At this point shelly is done handling the foreground execution of the job. Regar
 This completes the handling of a foreground job via `job_control_after_launch`. If the job terminated, it has already been cleaned up. If it was suspended, its state remains stored inside the job list and it can be interacted with again later. The terminal is controlled by shelly's process group again.
 
 With the handling of a foreground job covered, there is still another case left to consider. Shelly does not always wait for a launched job before continuing its main loop. Processes may continue running while shelly is either waiting for further user input or waiting for another job currently running in the foreground. There needs to be a way to notice and collect state changes of these processes without actively waiting for them.
+
+## Noticing state changes asynchronously
+
+Whenever the state of one of shelly's child processes changes, the operating system can deliver a `SIGCHLD` signal to the shell. The signal itself does not yet tell shelly exactly what happened to the process. It rather acts as a notification that there may now be a child process whose state can be collected using `waitpid`. During the initialization of shelly a signal handler for `SIGCHLD` is installed. The handler itself deliberately does very little work and only sets the global `got_sigchld` flag:
+
+```c
+volatile sig_atomic_t got_sigchld = 0;
+
+void SIGCHLD_handler(int sig) {
+    got_sigchld = 1;
+}
+```
+
+This is enough information to remember that a child state change occurred while shelly was busy doing something else. The actual work of finding and updating the affected job is performed later outside of the signal handler. The place where this flag becomes important is while shelly waits for further user input. The `shelly_linenoise` function spends most of its time blocked inside `select`, waiting until input becomes available on `STDIN`. A delivered `SIGCHLD` can interrupt this waiting operation. Once shelly regains control, the value of `got_sigchld` indicates that a child process changed its state.
+
+```c
+char *shelly_linenoise(char *prompt, int *err, t_sigchld_hook on_sigchld) {
+    ...
+
+    while (1) {
+        fd_set rfds;
+
+        if (got_sigchld) {   // <---- SIGCHLD flag set noticed at the beginning of function
+            got_sigchld = 0;
+
+            // run job reaping and cleanup via hook on_sigchld()
+            linenoiseHide(&ls);
+            on_sigchld();
+            linenoiseShow(&ls);
+        }
+
+        FD_ZERO(&rfds);
+        FD_SET(ls.ifd, &rfds);
+
+        int ret = select(ls.ifd + 1, &rfds, NULL, NULL, NULL);
+
+        if (ret == -1) {
+            *err = READ_LINE_ERROR;
+
+            if (errno == EINTR) {
+                if (got_sigchld) { // <---- SIGCHLD flag set noticed during waiting for user input
+                    got_sigchld = 0;
+
+                    // run job reaping and cleanup via hook on_sigchld()
+                    linenoiseHide(&ls);
+                    on_sigchld();
+                    linenoiseShow(&ls);
+                    continue;
+                }
+            }
+        }
+    }
+    ...
+}
+```
+
+Instead of terminating the current input operation, shelly can now call the provided `SIGCHLD` hook. This hook eventually leads to `reap_background_jobs`, while the current linenoise editing state remains active. Consequently a child process can be collected even while the user is in the middle of typing another command. The `got_sigchld` flag is additionally checked directly after entering `shelly_linenoise`. This covers another possible situation. While shelly is waiting for a foreground job, a process belonging to some previously started background job may change its state as well. At this point there is no active input operation which could be interrupted by `SIGCHLD`. The signal handler still sets `got_sigchld`, but the flag remains set until shelly eventually returns from the foreground wait and starts waiting for user input again. By checking the flag before blocking inside select, `shelly_linenoise` can notice this pending child state change immediately and trigger the same cleanup logic before waiting for new input.
+
+The `SIGCHLD` handler only records that something happened, while `reap_background_jobs` later determines which process changed its state and updates the corresponding job structures. This separation is important. In this way shelly can react to processes finishing or being stopped while it is occupied with something completely unrelated.
+
+### `reap_background_jobs`
+
+```c
+void reap_background_jobs(void) {
+    int child_to_reap, child_status;
+    job_t *job;
+    job_command_t *job_command;
+
+    child_to_reap = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
+
+    while (child_to_reap > 0) {
+        job_control_find_by_pid(child_to_reap, &job, &job_command);
+
+        update_job_command_status(child_status, job_command);
+
+        child_to_reap = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
+
+        if (job_complete(job)) {
+            job_display_print_job(job);
+            cleanup_job(job);
+        } else {
+            if (!job_running(job)) {
+                job->status = SUSPENDED;
+                job->is_background = 1;
+            }
+        }
+    }
+}
+```
+
+In contrast to the blocking `waitpid` used for the foreground job, this function calls `waitpid` with the `WNOHANG` option. This allows shelly to check for child processes whose state can currently be collected without blocking its own execution. If no such child exists, `waitpid` simply returns immediately.
+
+```c
+child_to_reap = waitpid(-1, &child_status, WNOHANG | WUNTRACED);
+```
+
+This time -1 is passed as the first argument instead of the negative process group id used inside `foreground_job_wait`. We are no longer interested in the processes of one particular job. Instead, `waitpid` may return the state change of any child process belonging to shelly. `WUNTRACED` is used for the same reason as before and makes stopped processes observable as well. If a child process is available, `waitpid` returns its PID. Unlike inside `foreground_job_wait`, we do not already know the job this process belongs to since it could be any process started by shelly in the past. `job_control_find_by_pid` therefore searches through the job list for the `job_command` carrying the returned PID and provides both the corresponding command and its surrounding job. The collected status can then be handled in exactly the same way as for a process belonging to a foreground job (same way as in `job_control_after_launch`). The corresponding `job_command` is updated depending on whether the process terminated or was suspended. There may however be more than one state change waiting to be collected. `reap_background_jobs` therefore continues calling `waitpid` inside a loop until no further child process is immediately available. Since `WNOHANG` is set, this does not cause shelly to wait for another state change. Once all currently available changes have been collected, `waitpid` returns without blocking and the reaping operation can finish. After updating a `job_command`, the state of its complete job can be considered. If all commands belonging to the job have terminated, the job is complete. Its final state can be displayed to the user and the job can be cleaned up since shelly no longer needs to keep track of it. If the job is not complete, it has to remain inside the job list. In case none of its commands are running anymore, the job has been suspended rather than completed. Its state is therefore changed to `SUSPENDED` and the job is kept so that it can later be continued again. All in all `reap_background_jobs` performs the actual work which was only announced by `SIGCHLD`.
+
+To finish the analysis of the job control stage, we still have to take a look at the available job control builtins, which allow the user to inspect and interact with the jobs maintained by shelly.
+
+## job control builtins
+
+There are three available builtins: `jobs`, `fg` and `bg`.
+
+### jobs
+
+The jobs builtin is the simplest of the three. It iterates over the job list and prints all jobs which are still known to shelly and are marked as background jobs. Since the job control continuously updates the states of the individual job_commands, the information required to display a job is already available at this point. The builtin itself therefore does not interact with any of the processes. It simply provides the user with a representation of the state currently maintained by the job control.
+
+### fg
+
+The fg builtin is used to move a job back into the foreground. The user specifies the job using its job id, for example:
+
+```sh
+fg %2
+```
+
+After locating the corresponding job inside the job list, it is no longer marked as a background job. If the job was previously suspended, the states of its suspended commands are changed back to `CMD_RUNNING` and `SIGCONT` is sent to its complete process group:
+
+```c
+kill(-job->pgid, SIGCONT);
+```
+
+The negative process group id is important here for the same reason process groups were useful when handling `CTRL + C` and `CTRL + Z`. A job may consist of several processes forming a pipeline. Sending `SIGCONT` to the process group continues all processes belonging to the job instead of addressing only one particular process. Afterwards there is no need for a separate implementation of foreground handling inside the builtin. The job is passed back to the already discussed `job_control_after_launch` function. From this point on the exact same mechanism used for a newly launched foreground job can be reused. The terminal foreground is assigned to the process group of the job, `foreground_job_wait` waits for its processes and once the job has terminated or has been suspended again, control of the terminal is returned to shelly.
+
+### bg
+
+The bg builtin follows a similar idea but continues a job without moving it into the foreground. After locating the requested job, `SIGCONT` with `kill(-job->pgid, SIGCONT)` is again sent to the complete process group. Suspended commands are marked as running again and the job remains in the background. Unlike `fg`, the builtin does not call `job_control_after_launch` afterwards. Shelly therefore does not hand over the terminal and does not actively wait for the job. The builtin returns and shelly can continue with its normal control flow. From this point on the continued processes are handled like the other processes running in the background. If their state changes later, the already discussed `SIGCHLD` and background reaping mechanism takes care of updating and eventually cleaning up the corresponding job.
+
+The three builtins therefore do not introduce fundamentally new job control mechanisms. Instead, they provide an interface through which the user can make use of the job information, process groups, signals and waiting mechanisms discussed throughout this stage.
