@@ -68,10 +68,10 @@ void shelly_loop(void) {
         }
         
         started_job = executor(context_list);
-        job_control_after_launch(started_job);   // returns exit code of last command
-
         free_token_list(token_list);
         free_context_list(context_list);
+
+        job_control_after_launch(started_job);   // returns exit code of last command
     }
 }
 
